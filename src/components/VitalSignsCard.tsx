@@ -349,7 +349,7 @@ function LiquidOrb({
   const memoryPercent = safeNumber(rawMemoryPercent, 0)
   const swapPercent = safeNumber(rawSwapPercent, 0)
   const hasSwapWarning = swapPercent > 0
-  const size = isMobile ? 62 : 82
+  const size = isMobile ? 68 : 88
   const safeMemoryPercent = Math.max(0, Math.min(100, memoryPercent))
   const waterY = size - (safeMemoryPercent / 100) * size
   const center = size / 2
@@ -403,14 +403,6 @@ function LiquidOrb({
             style={{ textShadow: isDark ? 'none' : '0 1px 3px rgba(255,255,255,0.9)' }}>MEM</p>
         </div>
       </div>
-      {/* 容量明细：放在球体下方，避免挤在球内看不清 */}
-      <p className={cn("font-mono font-semibold mt-1.5 whitespace-nowrap", isMobile ? "text-[9px]" : "text-[11px]", isDark ? "text-white/60" : "text-slate-600")}
-        style={{ textShadow: isDark ? 'none' : '0 1px 2px rgba(255,255,255,0.9)' }}>
-        {memoryUsed} / {memoryTotal}
-      </p>
-      {hasSwapWarning && (
-        <p className={cn("font-mono font-semibold animate-pulse", isMobile ? "text-[8px]" : "text-[9px]", isDark ? "text-amber-400/90" : "text-amber-700")}>⚠ Swap</p>
-      )}
     </div>
   )
 }
@@ -566,23 +558,33 @@ export function VitalSignsCard({ className, forceCollapsed }: { className?: stri
 
         {data && (
           <div className="space-y-2">
-            {/* 上部：指示器 */}
-            <div className={cn("flex flex-row items-center justify-center", isMobile ? "gap-2" : "gap-2 sm:gap-4")}>
-              <div className="flex-shrink-0 flex flex-col items-center">
-                <ArcReactor load={data.cpu?.load ?? 0} isMobile={isMobile} isDark={isDark} />
+            {/* 上部：指示器（两环同行等高对齐） */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className={cn("flex flex-row items-center justify-center", isMobile ? "gap-2" : "gap-2 sm:gap-4")}>
+                <div className="flex-shrink-0 flex flex-col items-center">
+                  <ArcReactor load={data.cpu?.load ?? 0} isMobile={isMobile} isDark={isDark} />
+                </div>
+                <div className={cn("flex-shrink-0 w-px bg-gradient-to-b from-transparent to-transparent",
+                  isMobile ? "h-14" : "h-16 sm:h-20", isDark ? "via-cyan-500/30" : "via-cyan-400/40")} />
+                <div className="flex-shrink-0 flex flex-col items-center">
+                  <LiquidOrb
+                    memoryPercent={data.memory?.usagePercent ?? 0}
+                    swapPercent={data.memory?.swapTotal > 0 ? (data.memory.swapUsed / data.memory.swapTotal) * 100 : 0}
+                    memoryUsed={formatBytes(data.memory?.used ?? 0)}
+                    memoryTotal={formatBytes(data.memory?.total ?? 0)}
+                    isMobile={isMobile}
+                    isDark={isDark}
+                  />
+                </div>
               </div>
-              <div className={cn("flex-shrink-0 w-px bg-gradient-to-b from-transparent to-transparent",
-                isMobile ? "h-14" : "h-16 sm:h-20", isDark ? "via-cyan-500/30" : "via-cyan-400/40")} />
-              <div className="flex-shrink-0 flex flex-col items-center">
-                <LiquidOrb
-                  memoryPercent={data.memory?.usagePercent ?? 0}
-                  swapPercent={data.memory?.swapTotal > 0 ? (data.memory.swapUsed / data.memory.swapTotal) * 100 : 0}
-                  memoryUsed={formatBytes(data.memory?.used ?? 0)}
-                  memoryTotal={formatBytes(data.memory?.total ?? 0)}
-                  isMobile={isMobile}
-                  isDark={isDark}
-                />
-              </div>
+              {/* 容量明细：横跨两环下方居中，保持两环等高对齐 */}
+              <p className={cn("font-mono font-semibold whitespace-nowrap", isMobile ? "text-[9px]" : "text-[11px]", isDark ? "text-white/60" : "text-slate-600")}
+                style={{ textShadow: isDark ? 'none' : '0 1px 2px rgba(255,255,255,0.9)' }}>
+                {formatBytes(data.memory?.used ?? 0)} / {formatBytes(data.memory?.total ?? 0)}
+                {(data.memory?.swapTotal > 0 && data.memory.swapUsed > 0) && (
+                  <span className="ml-2 font-semibold animate-pulse text-amber-600">⚠ Swap</span>
+                )}
+              </p>
             </div>
 
             {/* 分隔线 */}
