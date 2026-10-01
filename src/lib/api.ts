@@ -161,8 +161,31 @@ async function request<T>(
       }
       
       // 构建 ApiError
-      const message = (data?.error as string) || (data?.message as string) || getHttpErrorMessage(res.status)
+      let message = (data?.error as string) || (data?.message as string) || getHttpErrorMessage(res.status)
       const details = data?.details as Array<{ field: string; message: string }> | undefined
+
+      // 将校验错误的具体字段信息拼进错误消息，便于用户看清是哪个参数的问题
+      if (details?.length) {
+        const parts: string[] = []
+        for (const d of details) {
+          try {
+            const issues = JSON.parse(d.message)
+            if (Array.isArray(issues)) {
+              for (const iss of issues) {
+                if (iss?.message) parts.push(String(iss.message))
+              }
+            } else {
+              parts.push(d.message)
+            }
+          } catch {
+            parts.push(d.message)
+          }
+        }
+        if (parts.length) {
+          message = `${message}：${parts.join('；')}`
+        }
+      }
+
       throw new ApiError(message, res.status, details)
     }
     

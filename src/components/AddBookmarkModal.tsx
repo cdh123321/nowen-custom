@@ -381,7 +381,19 @@ export function AddBookmarkModal({
   }
 
   const handleSubmit = async () => {
-    if (!url || !title) {
+    // 自动补全协议前缀：用户输入 "www.baidu.com" 这类不带 http(s):// 的地址时，
+    // 后端 URL 校验会拒绝，这里统一补上 https://
+    const normalizeUrl = (raw: string) => {
+      const trimmed = raw.trim()
+      if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+        return `https://${trimmed}`
+      }
+      return trimmed
+    }
+    const finalUrl = normalizeUrl(url)
+    const finalInternalUrl = internalUrl ? normalizeUrl(internalUrl) : ''
+
+    if (!finalUrl || !title) {
       setError(t('bookmark.modal.required_error'))
       setShake(true)
       setTimeout(() => setShake(false), 500)
@@ -396,8 +408,8 @@ export function AddBookmarkModal({
     // 造成"图标/内网链接/描述清除后保存不生效"的问题。
     try {
       await onAdd({
-        url,
-        internalUrl: internalUrl || '',
+        url: finalUrl,
+        internalUrl: finalInternalUrl,
         title,
         description: description || '',
         favicon: favicon || '',
