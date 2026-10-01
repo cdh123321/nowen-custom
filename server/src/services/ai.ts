@@ -368,8 +368,8 @@ async function callOpenAiCompatible(prompt: string, systemPrompt?: string, custo
   }
 }
 
-async function callGemini(prompt: string, systemPrompt?: string): Promise<string> {
-  const config = getAiConfig()
+async function callGemini(prompt: string, systemPrompt?: string, customConfig?: AiConfig): Promise<string> {
+  const config = customConfig || getAiConfig()
   const { apiKey, apiBase, model } = config
   const modelName = model || 'gemini-2.0-flash'
   const timeoutMs = config.timeout || 30000
@@ -427,13 +427,13 @@ const DOMESTIC_PROVIDERS: Record<string, { baseUrl: string; defaultModel: string
 }
 
 // 通用调用入口
-async function callAi(prompt: string, systemPrompt?: string): Promise<string> {
-  const config = getAiConfig()
+async function callAi(prompt: string, systemPrompt?: string, customConfig?: AiConfig): Promise<string> {
+  const config = customConfig || getAiConfig()
   const { provider } = config
 
   switch (provider) {
     case 'gemini':
-      return callGemini(prompt, systemPrompt)
+      return callGemini(prompt, systemPrompt, customConfig)
     case 'deepseek':
     case 'qwen':
     case 'doubao': {
@@ -449,7 +449,7 @@ async function callAi(prompt: string, systemPrompt?: string): Promise<string> {
     case 'openai':
     case 'custom':
     default:
-      return callOpenAiCompatible(prompt, systemPrompt)
+      return callOpenAiCompatible(prompt, systemPrompt, customConfig)
   }
 }
 
@@ -630,16 +630,26 @@ export async function aiGenerateQuotes(req: AiGenerateQuotesRequest): Promise<Ai
 }
 
 // AI 连接测试
-export async function aiTestConnection(): Promise<{ success: boolean; message: string; model?: string }> {
+export async function aiTestConnection(override?: Partial<AiConfig>): Promise<{ success: boolean; message: string; model?: string }> {
   try {
-    const config = getAiConfig()
+    const base = getAiConfig()
+    // 用表单当前值覆盖数据库配置（仅覆盖有值字段；掩码 Key 视为未修改）
+    const config: AiConfig = { ...base }
+    if (override) {
+      if (override.provider) config.provider = override.provider
+      if (override.apiKey && !override.apiKey.startsWith('••••••')) config.apiKey = override.apiKey
+      if (override.apiBase) config.apiBase = override.apiBase
+      if (override.model) config.model = override.model
+      if (override.timeout && Number(override.timeout) > 0) config.timeout = Number(override.timeout)
+    }
     if (!config.provider) {
       return { success: false, message: '未配置 AI Provider' }
     }
 
     const rawResponse = await callAi(
       '请回复一个 JSON: {"status":"ok","message":"连接成功"}',
-      'Reply with valid JSON only.'
+      'Reply with valid JSON only.',
+      config
     )
 
     let cleaned = rawResponse.trim()

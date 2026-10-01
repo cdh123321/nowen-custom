@@ -578,10 +578,17 @@ router.put('/config', authMiddleware, validateBody(configSchema), (req, res) => 
   }
 })
 
-// POST /api/ai/test - 测试 AI 连接
-router.post('/test', authMiddleware, async (_req, res) => {
+// POST /api/ai/test - 测试 AI 连接（可传表单当前值，未保存也能直接测试）
+router.post('/test', authMiddleware, async (req, res) => {
   try {
-    const result = await aiTestConnection()
+    const { provider, apiKey, apiBase, model, timeout } = req.body || {}
+    const override: { provider?: string; apiKey?: string; apiBase?: string; model?: string; timeout?: number } = {}
+    if (typeof provider === 'string' && provider) override.provider = provider
+    if (typeof apiKey === 'string' && apiKey && !apiKey.startsWith('••••••')) override.apiKey = apiKey
+    if (typeof apiBase === 'string' && apiBase) override.apiBase = apiBase
+    if (typeof model === 'string' && model) override.model = model
+    if (timeout && Number(timeout) > 0) override.timeout = Number(timeout) * 1000
+    const result = await aiTestConnection(override)
     res.json(result)
   } catch (error: any) {
     res.status(500).json({ success: false, message: error?.message || '测试失败' })

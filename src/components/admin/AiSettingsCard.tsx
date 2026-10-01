@@ -195,7 +195,14 @@ export function AiSettingsCard({ onSave, enableAutoAi = true, onAutoAiChange }: 
     setTestResult(null)
 
     try {
-      const result = await aiApi.testConnection()
+      // 直接用表单当前值测试（掩码 Key 表示未修改，服务端会用已保存的 Key）
+      const result = await aiApi.testConnection({
+        provider,
+        apiKey: apiKey || undefined,
+        apiBase: apiBase || undefined,
+        model: model || undefined,
+        timeout,
+      })
       setTestResult(result)
     } catch (err: any) {
       setTestResult({ success: false, message: err?.message || t('admin.settings.ai.test_error') })

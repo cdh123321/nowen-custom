@@ -477,9 +477,16 @@ export async function saveAiConfig(config: {
   })
 }
 
-export async function testAiConnection(): Promise<AiTestResponse> {
+export async function testAiConnection(config?: {
+  provider?: string
+  apiKey?: string
+  apiBase?: string
+  model?: string
+  timeout?: number
+}): Promise<AiTestResponse> {
   return request<AiTestResponse>('/api/ai/test', {
     method: 'POST',
+    body: JSON.stringify(config || {}),
     requireAuth: true,
   })
 }
