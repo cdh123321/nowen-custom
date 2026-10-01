@@ -159,7 +159,7 @@ export function SpotlightCard({
           boxShadow: 'var(--color-shadow)',
         }}
       >
-        <div className="relative z-10">{children}</div>
+        <div className="relative z-10 h-full flex flex-col">{children}</div>
       </div>
     )
   }
@@ -227,7 +227,7 @@ export function SpotlightCard({
       )}
 
       {/* Content */}
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 h-full flex flex-col">{children}</div>
     </motion.div>
   )
 }
