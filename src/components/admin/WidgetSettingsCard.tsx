@@ -13,6 +13,7 @@ import {
   MonitorSmartphone,
   Monitor,
   Sparkles,
+  FolderUp,
   Users,
   Shield
 } from 'lucide-react'
@@ -20,14 +21,14 @@ import { cn } from '../../lib/utils'
 import { WidgetVisibility } from '../../lib/api'
 
 // 仅包含布尔开关的组件 ID 类型
-type WidgetToggleId = 'systemMonitor' | 'hardwareIdentity' | 'vitalSigns' | 'networkTelemetry' | 'processMatrix' | 'dockMiniMonitor' | 'mobileTicker' | 'aiAssistant'
+type WidgetToggleId = 'systemMonitor' | 'hardwareIdentity' | 'vitalSigns' | 'networkTelemetry' | 'processMatrix' | 'dockMiniMonitor' | 'mobileTicker' | 'aiAssistant' | 'filesEntry'
 
 // 访问模式 key 类型
 type WidgetAccessId = 'systemMonitorAccess' | 'hardwareIdentityAccess' | 'vitalSignsAccess' | 'networkTelemetryAccess' | 'processMatrixAccess' | 'dockMiniMonitorAccess' | 'mobileTickerAccess' | 'aiAssistantAccess'
 
 interface WidgetConfig {
   id: WidgetToggleId
-  accessId: WidgetAccessId
+  accessId?: WidgetAccessId
   labelKey: string
   descKey: string
   icon: React.ComponentType<{ className?: string }>
@@ -106,6 +107,14 @@ const widgetConfigs: WidgetConfig[] = [
     descKey: 'admin.settings.widget.ai_assistant_desc',
     icon: Sparkles,
     gradient: 'from-violet-500 to-indigo-600',
+    category: 'dock',
+  },
+  {
+    id: 'filesEntry',
+    labelKey: 'admin.settings.widget.files_entry',
+    descKey: 'admin.settings.widget.files_entry_desc',
+    icon: FolderUp,
+    gradient: 'from-sky-500 to-cyan-600',
     category: 'dock',
   },
 ]
@@ -214,8 +223,8 @@ export function WidgetSettingsCard({
             {dashboardWidgets.map((widget) => {
               const Icon = widget.icon
               const isVisible = visibility[widget.id] !== false
-              const isPrivate = visibility[widget.accessId] === 'private'
-              
+              const isPrivate = widget.accessId ? visibility[widget.accessId] === 'private' : false
+
               return (
                 <motion.div
                   key={widget.id}
@@ -263,29 +272,31 @@ export function WidgetSettingsCard({
                     </div>
                   </div>
 
-                  {/* 私人/公共切换按钮 */}
-                  <button
-                    type="button"
-                    onClick={(e) => toggleAccess(widget.accessId, e)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 flex-shrink-0',
-                      isPrivate
-                        ? 'ring-1 ring-amber-500/30'
-                        : 'ring-1 ring-cyan-500/30'
-                    )}
-                    style={{
-                      background: isPrivate
-                        ? 'rgba(245, 158, 11, 0.12)'
-                        : 'rgba(6, 182, 212, 0.12)',
-                      color: isPrivate
-                        ? 'rgb(251, 191, 36)'
-                        : 'rgb(34, 211, 238)',
-                    }}
-                    title={isPrivate ? t('admin.settings.widget.access_private_tip') : t('admin.settings.widget.access_public_tip')}
-                  >
-                    {isPrivate ? <Shield className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                    {isPrivate ? t('admin.settings.widget.access_private_label') : t('admin.settings.widget.access_public_label')}
-                  </button>
+                  {/* 私人/公共切换按钮（无访问模式配置的入口不显示） */}
+                  {widget.accessId && (
+                    <button
+                      type="button"
+                      onClick={(e) => toggleAccess(widget.accessId, e)}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 flex-shrink-0',
+                        isPrivate
+                          ? 'ring-1 ring-amber-500/30'
+                          : 'ring-1 ring-cyan-500/30'
+                      )}
+                      style={{
+                        background: isPrivate
+                          ? 'rgba(245, 158, 11, 0.12)'
+                          : 'rgba(6, 182, 212, 0.12)',
+                        color: isPrivate
+                          ? 'rgb(251, 191, 36)'
+                          : 'rgb(34, 211, 238)',
+                      }}
+                      title={isPrivate ? t('admin.settings.widget.access_private_tip') : t('admin.settings.widget.access_public_tip')}
+                    >
+                      {isPrivate ? <Shield className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                      {isPrivate ? t('admin.settings.widget.access_private_label') : t('admin.settings.widget.access_public_label')}
+                    </button>
+                  )}
                   
                   {/* 开关按钮 */}
                   <div 
@@ -331,8 +342,8 @@ export function WidgetSettingsCard({
             {dockWidgets.map((widget) => {
               const Icon = widget.icon
               const isVisible = visibility[widget.id] !== false
-              const isPrivate = visibility[widget.accessId] === 'private'
-              
+              const isPrivate = widget.accessId ? visibility[widget.accessId] === 'private' : false
+
               return (
                 <motion.div
                   key={widget.id}
@@ -380,29 +391,31 @@ export function WidgetSettingsCard({
                     </div>
                   </div>
 
-                  {/* 私人/公共切换按钮 */}
-                  <button
-                    type="button"
-                    onClick={(e) => toggleAccess(widget.accessId, e)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 flex-shrink-0',
-                      isPrivate
-                        ? 'ring-1 ring-amber-500/30'
-                        : 'ring-1 ring-cyan-500/30'
-                    )}
-                    style={{
-                      background: isPrivate
-                        ? 'rgba(245, 158, 11, 0.12)'
-                        : 'rgba(6, 182, 212, 0.12)',
-                      color: isPrivate
-                        ? 'rgb(251, 191, 36)'
-                        : 'rgb(34, 211, 238)',
-                    }}
-                    title={isPrivate ? t('admin.settings.widget.access_private_tip') : t('admin.settings.widget.access_public_tip')}
-                  >
-                    {isPrivate ? <Shield className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                    {isPrivate ? t('admin.settings.widget.access_private_label') : t('admin.settings.widget.access_public_label')}
-                  </button>
+                  {/* 私人/公共切换按钮（无访问模式配置的入口不显示） */}
+                  {widget.accessId && (
+                    <button
+                      type="button"
+                      onClick={(e) => toggleAccess(widget.accessId, e)}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 flex-shrink-0',
+                        isPrivate
+                          ? 'ring-1 ring-amber-500/30'
+                          : 'ring-1 ring-cyan-500/30'
+                      )}
+                      style={{
+                        background: isPrivate
+                          ? 'rgba(245, 158, 11, 0.12)'
+                          : 'rgba(6, 182, 212, 0.12)',
+                        color: isPrivate
+                          ? 'rgb(251, 191, 36)'
+                          : 'rgb(34, 211, 238)',
+                      }}
+                      title={isPrivate ? t('admin.settings.widget.access_private_tip') : t('admin.settings.widget.access_public_tip')}
+                    >
+                      {isPrivate ? <Shield className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                      {isPrivate ? t('admin.settings.widget.access_private_label') : t('admin.settings.widget.access_public_label')}
+                    </button>
+                  )}
                   
                   {/* 状态图标 */}
                   <div className="flex-shrink-0">

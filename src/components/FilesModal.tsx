@@ -19,12 +19,16 @@ import {
   FileVideo,
   CheckCircle,
   AlertCircle,
+  ClipboardList,
+  Copy,
+  Send,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import {
   fetchFiles,
   uploadFile,
   downloadFile,
+  fetchFileText,
   deleteFile,
   formatFileSize,
   FILE_TRANSFER_MAX_SIZE,
@@ -61,6 +65,10 @@ export function FilesModal({ open, onClose }: FilesModalProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastType>(null)
+  const [mode, setMode] = useState<'file' | 'text'>('file')
+  const [textContent, setTextContent] = useState('')
+  const [isSavingText, setIsSavingText] = useState(false)
+  const [copyingId, setCopyingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -142,6 +150,55 @@ export function FilesModal({ open, onClose }: FilesModalProps) {
     }
   }
 
+  // 把输入/粘贴的文字保存为 .txt 传输件
+  const handleSaveText = useCallback(async () => {
+    const content = textContent
+    if (!content.trim()) {
+      showToast('error', t('admin.files.text_empty'))
+      return
+    }
+    if (new Blob([content]).size > FILE_TRANSFER_MAX_SIZE) {
+      showToast('error', t('admin.files.too_large'))
+      return
+    }
+    setIsSavingText(true)
+    try {
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const name = `文本-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.txt`
+      const file = new File([content], name, { type: 'text/plain' })
+      const item = await uploadFile(file)
+      setFiles(prev => [item, ...prev])
+      setTextContent('')
+      showToast('success', t('admin.files.text_saved', { name: item.name }))
+    } catch (err: any) {
+      showToast('error', err?.message || t('admin.files.upload_error'))
+    } finally {
+      setIsSavingText(false)
+    }
+  }, [textContent, showToast, t])
+
+  // 判断是否为文本类传输件（可复制内容）
+  const isTextItem = (item: FileTransferItem) => {
+    if (item.mimeType.startsWith('text/')) return true
+    const ext = item.name.split('.').pop()?.toLowerCase() || ''
+    return ['txt', 'md', 'log', 'csv', 'json'].includes(ext)
+  }
+
+  // 复制文本传输件内容到剪贴板
+  const handleCopyText = async (item: FileTransferItem) => {
+    setCopyingId(item.id)
+    try {
+      const text = await fetchFileText(item)
+      await navigator.clipboard.writeText(text)
+      showToast('success', t('admin.files.copy_success'))
+    } catch (err: any) {
+      showToast('error', err?.message || t('admin.files.copy_error'))
+    } finally {
+      setCopyingId(null)
+    }
+  }
+
   const handleDelete = async (item: FileTransferItem) => {
     if (!confirm(t('admin.files.delete_confirm', { name: item.name }))) return
     try {
@@ -203,7 +260,42 @@ export function FilesModal({ open, onClose }: FilesModalProps) {
 
             {/* 内容区 */}
             <div className="overflow-y-auto p-5 space-y-4">
-              {/* 上传区域 */}
+              {/* 模式切换：文件 / 文本 */}
+              <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--color-bg-tertiary)' }}>
+                <button
+                  type="button"
+                  onClick={() => setMode('file')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all',
+                    mode === 'file' ? 'shadow-sm' : 'opacity-60 hover:opacity-100'
+                  )}
+                  style={{
+                    background: mode === 'file' ? 'var(--color-glass)' : 'transparent',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  <CloudUpload className="w-4 h-4" />
+                  {t('admin.files.tab_file')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('text')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all',
+                    mode === 'text' ? 'shadow-sm' : 'opacity-60 hover:opacity-100'
+                  )}
+                  style={{
+                    background: mode === 'text' ? 'var(--color-glass)' : 'transparent',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  {t('admin.files.tab_text')}
+                </button>
+              </div>
+
+              {/* 上传区域（文件模式） */}
+              {mode === 'file' && (
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
                 onDragLeave={() => setIsDragging(false)}
@@ -254,6 +346,60 @@ export function FilesModal({ open, onClose }: FilesModalProps) {
                   onChange={handleFileSelected}
                 />
               </div>
+              )}
+
+              {/* 文本输入区（文本模式） */}
+              {mode === 'text' && (
+                <div className="space-y-3">
+                  <textarea
+                    value={textContent}
+                    onChange={(e) => setTextContent(e.target.value)}
+                    placeholder={t('admin.files.text_placeholder')}
+                    rows={7}
+                    className={cn(
+                      'w-full px-4 py-3 rounded-xl text-sm resize-y',
+                      'border border-white/10 focus:border-white/30',
+                      'outline-none transition-colors placeholder:text-white/30'
+                    )}
+                    style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      {t('admin.files.text_hint')}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {textContent && (
+                        <button
+                          type="button"
+                          onClick={() => setTextContent('')}
+                          className="px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/10"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          {t('admin.files.text_clear')}
+                        </button>
+                      )}
+                      <motion.button
+                        type="button"
+                        onClick={handleSaveText}
+                        disabled={isSavingText || !textContent.trim()}
+                        whileTap={{ scale: 0.98 }}
+                        className={cn(
+                          'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white',
+                          'disabled:opacity-50 disabled:cursor-not-allowed'
+                        )}
+                        style={{ background: 'var(--color-primary)' }}
+                      >
+                        {isSavingText ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        {t('admin.files.save_text')}
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 文件列表 */}
               {isLoading ? (
@@ -297,6 +443,22 @@ export function FilesModal({ open, onClose }: FilesModalProps) {
                             </p>
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
+                            {isTextItem(item) && (
+                              <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleCopyText(item)}
+                                disabled={copyingId === item.id}
+                                className="p-2 rounded-lg transition-colors hover:bg-white/10 disabled:opacity-50"
+                                style={{ color: 'var(--color-text-secondary)' }}
+                                title={t('admin.files.copy')}
+                              >
+                                {copyingId === item.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </motion.button>
+                            )}
                             <motion.button
                               whileTap={{ scale: 0.9 }}
                               onClick={() => handleDownload(item)}

@@ -601,7 +601,7 @@
         "subtitle": "Control dashboard component visibility",
         "enabled_count": "Enabled",
         "dashboard_widgets": "Dashboard Widgets",
-        "dock_widgets": "Dock Widgets",
+        "dock_widgets": "Quick Entries",
         "system_monitor": "System Monitor",
         "system_monitor_desc": "Display CPU, memory, disk, network data",
         "hardware_identity": "Hardware Info Card",
@@ -617,7 +617,7 @@
         "mobile_ticker": "Mobile Status Bar",
         "mobile_ticker_desc": "Status indicator above mobile Dock",
         "ai_assistant": "AI Assistant",
-        "ai_assistant_desc": "AI assistant entry in Dock & shortcut (⌘J)",
+        "ai_assistant_desc": "AI assistant shortcut on the home page and hotkey (⌘J)",
         "access_public_label": "Public",
         "access_private_label": "Private",
         "access_public_tip": "Currently public, visible to everyone. Click to switch to private",
@@ -625,7 +625,9 @@
         "hint": "💡 Tip: Hiding widgets can reduce homepage data requests and improve loading speed. Widgets set to 'Private' are only visible to logged-in users. Save to apply changes.",
         "save": "Save Settings",
         "saving": "Saving...",
-        "saved": "Settings saved successfully"
+        "saved": "Settings saved successfully",
+        "files_entry": "File Transfer Entry",
+        "files_entry_desc": "Show the file transfer shortcut on the home page"
       },
       "wallpaper": {
         "title": "Wallpaper Settings",
@@ -1121,7 +1123,18 @@
       "delete_success": "File deleted",
       "delete_error": "Delete failed, please retry",
       "download_error": "Download failed, please retry",
-      "load_error": "Failed to load file list"
+      "load_error": "Failed to load file list",
+      "tab_file": "Files",
+      "tab_text": "Text",
+      "text_placeholder": "Type or paste text here…",
+      "text_hint": "Saved as a .txt transfer file — open or copy it on any device",
+      "text_clear": "Clear",
+      "save_text": "Save",
+      "text_saved": "Text saved: {{name}}",
+      "text_empty": "Please enter some text first",
+      "copy": "Copy content",
+      "copy_success": "Copied to clipboard",
+      "copy_error": "Copy failed, please retry"
     }
   },
   "ai_assistant": {

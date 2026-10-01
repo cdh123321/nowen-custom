@@ -431,7 +431,18 @@
       "delete_success": "文件已删除",
       "delete_error": "删除失败，请重试",
       "download_error": "下载失败，请重试",
-      "load_error": "获取文件列表失败"
+      "load_error": "获取文件列表失败",
+      "tab_file": "文件",
+      "tab_text": "文本",
+      "text_placeholder": "输入或粘贴文字内容…",
+      "text_hint": "保存后生成 .txt 传输件，可在其他设备打开或一键复制",
+      "text_clear": "清空",
+      "save_text": "保存传输",
+      "text_saved": "文本已保存：{{name}}",
+      "text_empty": "请先输入文字内容",
+      "copy": "复制内容",
+      "copy_success": "内容已复制到剪贴板",
+      "copy_error": "复制失败，请重试"
     },
     "settings": {
       "tabs": {
@@ -620,7 +631,7 @@
         "subtitle": "控制首页仪表组件的显示与隐藏",
         "enabled_count": "已启用",
         "dashboard_widgets": "仪表板组件",
-        "dock_widgets": "Dock 组件",
+        "dock_widgets": "快捷入口",
         "system_monitor": "系统监控仪表",
         "system_monitor_desc": "显示 CPU、内存、磁盘、网络等实时数据",
         "hardware_identity": "硬件信息卡片",
@@ -636,7 +647,7 @@
         "mobile_ticker": "移动端状态栏",
         "mobile_ticker_desc": "移动端底部 Dock 上方的状态指示条",
         "ai_assistant": "AI 助手",
-        "ai_assistant_desc": "Dock 栏 AI 助手入口及快捷键（⌘J）",
+        "ai_assistant_desc": "前台界面 AI 助手快捷入口及快捷键（⌘J）",
         "access_public_label": "公开",
         "access_private_label": "私人",
         "access_public_tip": "当前为公开模式，所有人可见。点击切换为私人模式",
@@ -644,7 +655,9 @@
         "hint": "💡 提示：隐藏仪表可以减少首页数据请求，提升加载速度。设为「私人」的组件仅登录用户可见。修改后需保存才能生效。",
         "save": "保存配置",
         "saving": "保存中...",
-        "saved": "设置保存成功"
+        "saved": "设置保存成功",
+        "files_entry": "文件传输入口",
+        "files_entry_desc": "在前台界面显示文件传输快捷入口"
       },
       "wallpaper": {
         "title": "壁纸设置",
