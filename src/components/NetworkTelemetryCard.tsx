@@ -440,7 +440,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
       </div>
 
       {/* 标题栏 */}
-      <div className="relative z-10 flex items-center gap-1.5 mb-2">
+      <div className="relative z-10 flex items-center gap-2 mb-2">
         <div className="relative">
           <Wifi className={cn(
             "w-3.5 h-3.5",
@@ -457,7 +457,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
           </div>
         </div>
         <span className={cn(
-          "text-xs sm:text-sm font-medium tracking-wider",
+          "text-sm font-medium tracking-wider",
           isDark ? "text-white/80" : "text-slate-700"
         )}>
           {t('monitor.network_telemetry')}
@@ -547,10 +547,10 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
             <div className="space-y-2">
               {/* 下行流量 - 青色 */}
               <div className={cn(
-                "h-14 rounded-lg overflow-hidden border",
-                isDark 
-                  ? "bg-black/30 border-cyan-500/10" 
-                  : "bg-slate-50/80 border-cyan-300/30 shadow-inner"
+                "h-16 rounded-lg overflow-hidden border",
+                isDark
+                  ? "bg-black/30 border-white/5"
+                  : "bg-slate-50/80 border-slate-200/50 shadow-inner"
               )}>
                 <div className="flex items-center gap-1 px-2 pt-1">
                   <ArrowDown className={cn(
@@ -570,10 +570,10 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
 
               {/* 上行流量 - 紫色 */}
               <div className={cn(
-                "h-14 rounded-lg overflow-hidden border",
-                isDark 
-                  ? "bg-black/30 border-purple-500/10" 
-                  : "bg-slate-50/80 border-purple-300/30 shadow-inner"
+                "h-16 rounded-lg overflow-hidden border",
+                isDark
+                  ? "bg-black/30 border-white/5"
+                  : "bg-slate-50/80 border-slate-200/50 shadow-inner"
               )}>
                 <div className="flex items-center gap-1 px-2 pt-1">
                   <ArrowUp className={cn(
@@ -598,7 +598,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
             {/* 统计数据 */}
             <div className="grid grid-cols-2 gap-2 text-[10px]">
               <div className={cn(
-                "flex items-center justify-between px-2 py-1.5 rounded",
+                "flex items-center justify-between px-2 py-1.5 rounded-lg",
                 isDark ? "bg-black/20" : "bg-slate-100/80"
               )}>
                 <span className={cn(
@@ -619,7 +619,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
                 </span>
               </div>
               <div className={cn(
-                "flex items-center justify-between px-2 py-1.5 rounded",
+                "flex items-center justify-between px-2 py-1.5 rounded-lg",
                 isDark ? "bg-black/20" : "bg-slate-100/80"
               )}>
                 <span className={cn(

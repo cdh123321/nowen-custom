@@ -420,7 +420,7 @@ export function HardwareIdentityCard({ className, forceCollapsed }: { className?
 
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-2xl",
+      "relative overflow-hidden rounded-2xl flex flex-col",
       "backdrop-blur-xl",
       effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
       isMobile ? "p-3" : "p-4",
@@ -524,7 +524,7 @@ export function HardwareIdentityCard({ className, forceCollapsed }: { className?
             className="overflow-hidden"
           >
       {/* 主内容区 */}
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col min-h-[232px]">
         {/* 加载状态 */}
         {isLoading && !data && (
           <div className={cn(
@@ -568,7 +568,7 @@ export function HardwareIdentityCard({ className, forceCollapsed }: { className?
 
         {/* 硬件信息列表 */}
         {showContent && (
-          <div className="space-y-0">
+          <div className="flex-1 flex flex-col justify-evenly pb-4">
             {hardwareEntries.map((entry, index) => (
               <TerminalLine
                 key={entry.label}

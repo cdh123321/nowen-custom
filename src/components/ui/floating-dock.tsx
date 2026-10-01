@@ -7,7 +7,18 @@ import {
   useTransform,
 } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Grip, StretchHorizontal, StretchVertical } from "lucide-react";
+import {
+  Grip,
+  StretchHorizontal,
+  StretchVertical,
+  SlidersHorizontal,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  Check,
+} from "lucide-react";
 
 // 移动端检测
 const isMobileDevice = () =>
@@ -37,6 +48,18 @@ interface FloatingDockProps {
 const DOCK_POSITION_KEY = "desktop-dock-pos";
 const DOCK_COLLAPSED_KEY = "desktop-dock-collapsed";
 const DOCK_ORIENTATION_KEY = "desktop-dock-orient";
+// 图标顺序 / 隐藏 持久化
+const DOCK_ORDER_KEY = "desktop-dock-order";
+const DOCK_HIDDEN_KEY = "desktop-dock-hidden";
+
+function loadIdList(key: string): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 // Dock 方向：h=横排 v=竖排
 type DockOrientation = "h" | "v";
@@ -116,12 +139,75 @@ export function FloatingDock({
   const [isCollapsed, setIsCollapsed] = useState(loadCollapsed);
   const [orientation, setOrientation] = useState<DockOrientation>(loadOrientation);
   const isVertical = orientation === "v";
+  const [dockOrder, setDockOrder] = useState<string[]>(() => loadIdList(DOCK_ORDER_KEY));
+  const [dockHidden, setDockHidden] = useState<string[]>(() => loadIdList(DOCK_HIDDEN_KEY));
+  const [isManaging, setIsManaging] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
   const isMobile = useMemo(() => isMobileDevice(), []);
   const dockMainSize = useMemo(
     () => getDockMainSize(items.length + (leftItems?.length ?? 0), !!leftItems?.length),
     [items.length, leftItems?.length]
   );
+
+  // ===== 图标排序 / 显隐管理 =====
+  // 按用户自定义顺序排列（未出现在 order 中的保持默认顺序）
+  const sortedItems = useMemo(() => {
+    const order = dockOrder.filter((id) => items.some((i) => i.id === id));
+    const rest = items.filter((i) => !order.includes(i.id));
+    return [...order.map((id) => items.find((i) => i.id === id)!), ...rest];
+  }, [items, dockOrder]);
+
+  // 正常展示时过滤掉被隐藏的图标
+  const visibleItems = useMemo(
+    () => sortedItems.filter((i) => !dockHidden.includes(i.id)),
+    [sortedItems, dockHidden]
+  );
+
+  const persistOrder = useCallback((ids: string[]) => {
+    setDockOrder(ids);
+    try {
+      localStorage.setItem(DOCK_ORDER_KEY, JSON.stringify(ids));
+    } catch {
+      /* */
+    }
+  }, []);
+
+  const persistHidden = useCallback((ids: string[]) => {
+    setDockHidden(ids);
+    try {
+      localStorage.setItem(DOCK_HIDDEN_KEY, JSON.stringify(ids));
+    } catch {
+      /* */
+    }
+  }, []);
+
+  const moveItem = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const ids = sortedItems.map((i) => i.id);
+      const idx = ids.indexOf(id);
+      const target = idx + dir;
+      if (idx < 0 || target < 0 || target >= ids.length) return;
+      [ids[idx], ids[target]] = [ids[target], ids[idx]];
+      persistOrder(ids);
+    },
+    [sortedItems, persistOrder]
+  );
+
+  const toggleItemHidden = useCallback(
+    (id: string) => {
+      persistHidden(
+        dockHidden.includes(id)
+          ? dockHidden.filter((x) => x !== id)
+          : [...dockHidden, id]
+      );
+    },
+    [dockHidden, persistHidden]
+  );
+
+  const resetDockLayout = useCallback(() => {
+    persistOrder([]);
+    persistHidden([]);
+  }, [persistOrder, persistHidden]);
 
   // 拖拽位置状态
   const posRef = useRef(loadPos());
@@ -389,11 +475,161 @@ export function FloatingDock({
               {isVertical ? <StretchHorizontal className="w-3 h-3" /> : <StretchVertical className="w-3 h-3" />}
             </motion.button>
 
+            {/* 整理图标（排序 / 显隐） */}
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isDragging) setIsManaging((prev) => !prev);
+              }}
+              className={cn(
+                "w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0",
+                !isVertical && "mb-1",
+                "transition-colors duration-200",
+                isManaging
+                  ? isDark
+                    ? "text-cyan-400"
+                    : "text-blue-500"
+                  : isDark
+                    ? "hover:bg-white/10 text-white/40 hover:text-cyan-400/80"
+                    : "hover:bg-black/5 text-slate-400 hover:text-blue-500/70"
+              )}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              title="整理图标"
+            >
+              <SlidersHorizontal className="w-3 h-3" />
+            </motion.button>
+
             <div
               className={cn("mx-0.5", isVertical ? "h-px w-6" : "w-px h-6 mb-1")}
               style={{ background: "var(--color-glass-border)" }}
             />
 
+            {/* 整理模式：排序 / 显隐面板 */}
+            {isManaging ? (
+              <div className={cn(
+                "flex flex-col gap-0.5 min-w-[200px] max-h-[320px] overflow-y-auto",
+                isVertical ? "py-0.5" : "self-end pb-0.5"
+              )}>
+                <div
+                  className="text-[10px] px-1.5 pb-0.5 font-medium"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  调整顺序，点眼睛隐藏
+                </div>
+                {sortedItems.map((item, idx) => {
+                  const hidden = dockHidden.includes(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-1 px-1.5 py-1 rounded-md"
+                      style={{
+                        opacity: hidden ? 0.45 : 1,
+                        background: hidden ? "transparent" : "var(--color-glass-hover)",
+                      }}
+                    >
+                      <span
+                        className="w-4 h-4 flex items-center justify-center flex-shrink-0 [&_svg]:w-3.5 [&_svg]:h-3.5"
+                        style={{ color: "var(--color-text-secondary)" }}
+                      >
+                        {item.icon}
+                      </span>
+                      <span
+                        className="text-xs flex-1 truncate"
+                        style={{ color: "var(--color-text-primary)" }}
+                      >
+                        {item.title}
+                      </span>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          moveItem(item.id, -1);
+                        }}
+                        disabled={idx === 0}
+                        className={cn(
+                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-25",
+                          isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                        )}
+                        style={{ color: "var(--color-text-secondary)" }}
+                        title="前移"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          moveItem(item.id, 1);
+                        }}
+                        disabled={idx === sortedItems.length - 1}
+                        className={cn(
+                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-25",
+                          isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                        )}
+                        style={{ color: "var(--color-text-secondary)" }}
+                        title="后移"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleItemHidden(item.id);
+                        }}
+                        className={cn(
+                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors",
+                          isDark ? "hover:bg-white/10" : "hover:bg-black/10",
+                          hidden ? "text-amber-400" : ""
+                        )}
+                        style={hidden ? undefined : { color: "var(--color-text-secondary)" }}
+                        title={hidden ? "恢复显示" : "隐藏"}
+                      >
+                        {hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  );
+                })}
+                <div
+                  className={cn("my-0.5", isVertical ? "h-px w-full" : "h-px w-full")}
+                  style={{ background: "var(--color-glass-border)" }}
+                />
+                <div className="flex items-center gap-1 px-1 pb-0.5">
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resetDockLayout();
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[11px] transition-colors",
+                      isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    )}
+                    style={{ color: "var(--color-text-secondary)" }}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    恢复默认
+                  </button>
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsManaging(false);
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[11px] transition-colors",
+                      isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    )}
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    <Check className="w-3 h-3" />
+                    完成
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <>
             {leftItems && leftItems.length > 0 && (
               <>
                 {leftItems.map((item) => (
@@ -414,7 +650,7 @@ export function FloatingDock({
                 />
               </>
             )}
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <DockItem
                 key={item.id}
                 mouseX={hoverMouseX}
@@ -426,6 +662,8 @@ export function FloatingDock({
                 {...item}
               />
             ))}
+            </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
