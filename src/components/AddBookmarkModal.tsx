@@ -394,19 +394,28 @@ export function AddBookmarkModal({
     // 注意：这里必须用空字符串而不是 undefined。
     // undefined 会被 JSON.stringify 丢弃，导致后端合并时保留旧值，
     // 造成"图标/内网链接/描述清除后保存不生效"的问题。
-    await onAdd({
-      url,
-      internalUrl: internalUrl || '',
-      title,
-      description: description || '',
-      favicon: favicon || '',
-      icon: icon || '',
-      iconUrl: finalIconUrl || '',
-      category: category || '',
-      tags: tags.length > 0 ? tags : undefined,
-      isReadLater,
-      visibility,
-    })
+    try {
+      await onAdd({
+        url,
+        internalUrl: internalUrl || '',
+        title,
+        description: description || '',
+        favicon: favicon || '',
+        icon: icon || '',
+        iconUrl: finalIconUrl || '',
+        category: category || '',
+        tags: tags.length > 0 ? tags : undefined,
+        isReadLater,
+        visibility,
+      })
+    } catch (err) {
+      // 保存失败（如登录过期、网络问题）：在弹窗内显示错误，不再静默吞掉
+      const message = err instanceof Error ? err.message : t('bookmark.modal.save_error_fallback')
+      setError(message)
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
+      return
+    }
 
     onClose()
   }

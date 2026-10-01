@@ -444,17 +444,13 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
 
   const handleSaveBookmark = useCallback(
     async (data: Omit<Bookmark, "id" | "orderIndex" | "createdAt" | "updatedAt">) => {
-      try {
-        if (editingBookmark) {
-          await updateBookmark(editingBookmark.id, data);
-        } else {
-          await addBookmark(data);
-        }
-        // 保存成功后刷新数据，确保前端状态与后端一致
-        await refreshData();
-      } catch (err) {
-        console.error('保存书签失败:', err);
+      if (editingBookmark) {
+        await updateBookmark(editingBookmark.id, data);
+      } else {
+        await addBookmark(data);
       }
+      // 保存成功后刷新数据，确保前端状态与后端一致
+      await refreshData();
       setEditingBookmark(null);
       setPendingUrl("");
     },

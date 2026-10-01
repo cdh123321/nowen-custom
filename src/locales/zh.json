@@ -106,7 +106,8 @@
       "tags_placeholder": "输入标签后按 Enter，逗号分隔...",
       "visibility": "可见性",
       "visibility_public": "公开",
-      "visibility_private": "私人"
+      "visibility_private": "私人",
+      "save_error_fallback": "保存失败，请重试"
     }
   },
   "category": {

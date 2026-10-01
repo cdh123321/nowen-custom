@@ -106,7 +106,8 @@
       "tags_placeholder": "Type tag and press Enter, or use comma...",
       "visibility": "Visibility",
       "visibility_public": "Public",
-      "visibility_private": "Private"
+      "visibility_private": "Private",
+      "save_error_fallback": "Save failed, please retry"
     }
   },
   "category": {

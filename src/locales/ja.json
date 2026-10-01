@@ -104,7 +104,8 @@
       "tags_placeholder": "タグを入力してEnterキー、カンマ区切り...",
       "visibility": "可視性",
       "visibility_public": "公開",
-      "visibility_private": "プライベート"
+      "visibility_private": "プライベート",
+      "save_error_fallback": "保存に失敗しました。再試行してください"
     }
   },
   "category": {
