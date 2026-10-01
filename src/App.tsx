@@ -769,7 +769,7 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
 
       {/* Main Content */}
       <div className="min-h-screen px-4 sm:px-6 lg:px-8 pb-32">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/* Hero Section */}
           <HeroSection
             formattedTime={formattedTime}
@@ -835,13 +835,13 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
           {/* Pinned Bookmarks - Bento Grid */}
           {pinnedBookmarks.length > 0 ? (
             <motion.section
-              className="mb-12"
+              className="mb-8"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1 }}
               data-section="pinned"
             >
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="relative">
                   <Pin className="w-5 h-5 text-yellow-400" />
                   <BreathingDot color="#eab308" size="sm" className="absolute -top-1 -right-1" />
@@ -918,10 +918,10 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
             </motion.section>
           ) : (
             /* 独立显示系统监控卡片 */
-            <motion.section className="mb-12" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
+            <motion.section className="mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
               {/* Widget 尺寸 S/M/L 切换 */}
               {(effectiveWidgetVisibility.systemMonitor !== false || effectiveWidgetVisibility.hardwareIdentity !== false || effectiveWidgetVisibility.vitalSigns !== false || effectiveWidgetVisibility.networkTelemetry !== false || effectiveWidgetVisibility.processMatrix !== false) && (
-                <div className="flex items-center justify-end mb-4">
+                <div className="flex items-center justify-end mb-3">
                   <WidgetSizeModeToggle widgetSizeMode={widgetSizeMode} onChange={handleWidgetSizeModeChange} />
                 </div>
               )}
@@ -1556,7 +1556,7 @@ function CategorySection({
   return (
     <motion.section
       ref={isEager ? undefined : lazyRef}
-      className="mb-12 relative group"
+      className="mb-8 relative group"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(1.2 + catIndex * 0.1, 1.8) }}
@@ -1572,7 +1572,7 @@ function CategorySection({
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-6 relative z-10">
+      <div className="flex items-center gap-3 mb-4 relative z-10">
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center backdrop-blur-sm"
           style={{ backgroundColor: `${category.color}15`, color: category.color }}

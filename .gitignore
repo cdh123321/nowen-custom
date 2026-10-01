@@ -31,3 +31,6 @@ coverage/
 server/data/zen-garden.db
 server/.data-backup/zen-garden.db.safe
 server/server/data/zen-garden.db
+
+# Server runtime data (NAS mounted)
+server/server/data/
