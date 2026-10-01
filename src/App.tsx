@@ -60,7 +60,6 @@ import { CloudDrawerProvider } from "./hooks/CloudDrawerContext";
 
 // 监控组件
 import { SystemMonitorCard } from "./components/SystemMonitorCard";
-import { AiAssistantCard } from "./components/AiAssistantCard";
 import { HardwareIdentityCard } from "./components/HardwareIdentityCard";
 import { VitalSignsCard } from "./components/VitalSignsCard";
 import { NetworkTelemetryCard } from "./components/NetworkTelemetryCard";
@@ -889,13 +888,6 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
                   </BentoGridItem>
                 )}
 
-                {/* AI 助手独立卡片（登录 + 后台开关可见） */}
-                {isLoggedIn && effectiveWidgetVisibility.aiAssistant !== false && (
-                  <BentoGridItem key="ai-assistant" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(168, 85, 247, 0.15)"} delay={0.3} className="p-3">
-                    <AiAssistantCard />
-                  </BentoGridItem>
-                )}
-
                 {pinnedBookmarks.map((bookmark, index) => (
                   <BentoGridItem
                     key={bookmark.id}
@@ -957,13 +949,6 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
                 {effectiveWidgetVisibility.processMatrix !== false && (
                   <BentoGridItem key="process-matrix-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(34, 197, 94, 0.12)"} delay={0.25} className="p-3">
                     <ProcessMatrixCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
-                  </BentoGridItem>
-                )}
-
-                {/* AI 助手独立卡片（登录 + 后台开关可见） */}
-                {isLoggedIn && effectiveWidgetVisibility.aiAssistant !== false && (
-                  <BentoGridItem key="ai-assistant-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(168, 85, 247, 0.15)"} delay={0.3} className="p-3">
-                    <AiAssistantCard />
                   </BentoGridItem>
                 )}
               </BentoGrid>

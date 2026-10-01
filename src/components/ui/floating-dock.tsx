@@ -704,6 +704,8 @@ function DockItem({
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [showSubmenu, setShowSubmenu] = useState(false);
+  // 竖排时气泡弹出方向：靠右边缘时弹到左侧，避免被屏幕裁剪
+  const [flyoutSide, setFlyoutSide] = useState<"right" | "left">("right");
   const submenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 点击外部关闭子菜单（特别是移动端没有 hover 离开事件）
@@ -775,6 +777,11 @@ function DockItem({
       className="relative flex items-center justify-center"
       onMouseEnter={() => {
         if (isMobile) return;
+        // 竖排时检测右侧剩余空间，决定气泡往左还是往右弹
+        if (axis === "y" && ref.current) {
+          const rect = ref.current.getBoundingClientRect();
+          setFlyoutSide(window.innerWidth - rect.right < 180 ? "left" : "right");
+        }
         setIsHovered(true);
         if (subItems && subItems.length > 0) {
           if (submenuTimeoutRef.current) {
@@ -800,7 +807,9 @@ function DockItem({
             className={cn(
               "absolute px-2 py-1 rounded-md whitespace-nowrap z-50",
               axis === "y"
-                ? "left-full top-1/2 -translate-y-1/2 ml-2"
+                ? flyoutSide === "left"
+                  ? "right-full top-1/2 -translate-y-1/2 mr-2"
+                  : "left-full top-1/2 -translate-y-1/2 ml-2"
                 : "-top-9 left-1/2 -translate-x-1/2"
             )}
             style={{
@@ -840,7 +849,9 @@ function DockItem({
             className={cn(
               "absolute p-2 rounded-xl z-50",
               axis === "y"
-                ? "left-full top-1/2 -translate-y-1/2 ml-3"
+                ? flyoutSide === "left"
+                  ? "right-full top-1/2 -translate-y-1/2 mr-3"
+                  : "left-full top-1/2 -translate-y-1/2 ml-3"
                 : "bottom-full mb-3 left-1/2 -translate-x-1/2"
             )}
             style={{
