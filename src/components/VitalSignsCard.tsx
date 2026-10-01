@@ -471,8 +471,8 @@ export function VitalSignsCard({ className, forceCollapsed }: { className?: stri
 
   return (
     <div className={cn(
-      "relative rounded-2xl backdrop-blur-xl p-3 sm:p-4 min-w-0",
-      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
+      "relative rounded-2xl backdrop-blur-xl p-3 min-w-0",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[240px]",
       isDark 
         ? "bg-gradient-to-br from-slate-900/95 via-slate-800/80 to-slate-900/95 border border-cyan-500/20"
         : "bg-gradient-to-br from-white/95 via-slate-50/90 to-white/95 border border-cyan-200/50 shadow-xl shadow-cyan-500/5",

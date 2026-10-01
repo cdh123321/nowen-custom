@@ -265,7 +265,7 @@ function IPTerminal({ ip, iface, isDark = true }: { ip: string; iface: string; i
 
   return (
     <div className={cn(
-      "rounded-lg px-3 py-2 border",
+      "rounded-lg px-2.5 py-1.5 border",
       isDark 
         ? "bg-black/60 border-emerald-500/20" 
         : "bg-slate-50/80 border-emerald-300/50 shadow-sm"
@@ -297,7 +297,7 @@ function IPTerminal({ ip, iface, isDark = true }: { ip: string; iface: string; i
         </div>
       </div>
       <div className={cn(
-        "font-mono text-xs sm:text-sm tracking-wider",
+        "font-mono text-xs tracking-wider",
         isDark ? "text-emerald-400" : "text-emerald-700"
       )}>
         <span className={isDark ? "text-emerald-600" : "text-emerald-500"}>$</span>
@@ -400,8 +400,8 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
     <div className={cn(
       "relative rounded-2xl",
       "backdrop-blur-xl",
-      "p-3 sm:p-4 min-w-0",
-      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
+      "p-3 min-w-0",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[240px]",
       isDark 
         ? "bg-gradient-to-br from-slate-900/95 via-slate-800/80 to-slate-900/95 border border-purple-500/20"
         : "bg-gradient-to-br from-white/95 via-slate-50/90 to-white/95 border border-purple-200/50 shadow-xl shadow-purple-500/5",
@@ -457,7 +457,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
           </div>
         </div>
         <span className={cn(
-          "text-sm font-medium tracking-wider",
+          "text-xs font-medium tracking-wider",
           isDark ? "text-white/80" : "text-slate-700"
         )}>
           {t('monitor.network_telemetry')}
@@ -542,12 +542,12 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
 
         {/* 监控内容 */}
         {data && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {/* 走势图区域 */}
             <div className="space-y-2">
               {/* 下行流量 - 青色 */}
               <div className={cn(
-                "h-16 rounded-lg overflow-hidden border",
+                "h-14 rounded-lg overflow-hidden border",
                 isDark
                   ? "bg-black/30 border-white/5"
                   : "bg-slate-50/80 border-slate-200/50 shadow-inner"
@@ -570,7 +570,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
 
               {/* 上行流量 - 紫色 */}
               <div className={cn(
-                "h-16 rounded-lg overflow-hidden border",
+                "h-14 rounded-lg overflow-hidden border",
                 isDark
                   ? "bg-black/30 border-white/5"
                   : "bg-slate-50/80 border-slate-200/50 shadow-inner"
@@ -598,7 +598,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
             {/* 统计数据 */}
             <div className="grid grid-cols-2 gap-2 text-[10px]">
               <div className={cn(
-                "flex items-center justify-between px-2 py-1.5 rounded-lg",
+                "flex items-center justify-between px-2 py-1 rounded-lg",
                 isDark ? "bg-black/20" : "bg-slate-100/80"
               )}>
                 <span className={cn(
@@ -619,7 +619,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
                 </span>
               </div>
               <div className={cn(
-                "flex items-center justify-between px-2 py-1.5 rounded-lg",
+                "flex items-center justify-between px-2 py-1 rounded-lg",
                 isDark ? "bg-black/20" : "bg-slate-100/80"
               )}>
                 <span className={cn(

@@ -197,7 +197,7 @@ function TerminalLine({
     <motion.div 
       className={cn(
         "flex items-center gap-1.5 font-mono",
-        isMobile ? "py-0.5 text-[10px]" : "py-1 text-xs gap-2"
+        isMobile ? "py-0.5 text-[10px]" : "py-0.5 text-xs gap-2"
       )}
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
@@ -422,8 +422,8 @@ export function HardwareIdentityCard({ className, forceCollapsed }: { className?
     <div className={cn(
       "relative overflow-hidden rounded-2xl flex flex-col",
       "backdrop-blur-xl",
-      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
-      isMobile ? "p-3" : "p-4",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[240px]",
+      isMobile ? "p-3" : "p-3",
       isDark 
         ? "bg-gradient-to-br from-slate-950/95 via-slate-900/90 to-slate-950/95 border border-cyan-500/10"
         : "bg-gradient-to-br from-slate-50/95 via-white/90 to-slate-50/95 border border-blue-200/50 shadow-xl shadow-blue-500/5",
@@ -524,7 +524,7 @@ export function HardwareIdentityCard({ className, forceCollapsed }: { className?
             className="overflow-hidden"
           >
       {/* 主内容区 */}
-      <div className="relative z-10 flex flex-col min-h-[232px]">
+      <div className="relative z-10 flex flex-col min-h-[178px]">
         {/* 加载状态 */}
         {isLoading && !data && (
           <div className={cn(

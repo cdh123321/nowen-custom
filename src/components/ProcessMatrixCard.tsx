@@ -625,8 +625,8 @@ export function ProcessMatrixCard({ className, forceCollapsed }: { className?: s
       className={cn(
         "relative rounded-2xl overflow-hidden",
         "backdrop-blur-xl",
-        "p-3 sm:p-4 min-w-0",
-        effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
+        "p-3 min-w-0",
+        effectiveCollapsed ? "h-auto" : "h-full min-h-[240px]",
         isDark
           ? "bg-gradient-to-br from-gray-950 via-gray-900 to-black border border-green-500/20"
           : "bg-gradient-to-br from-emerald-50/95 via-white/90 to-emerald-50/95 border border-emerald-200/50 shadow-xl shadow-emerald-500/5",

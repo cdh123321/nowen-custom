@@ -863,27 +863,27 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
               <BentoGrid>
                 {/* System Monitor Cards */}
                 {effectiveWidgetVisibility.systemMonitor !== false && (
-                  <BentoGridItem key="system-monitor" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.15)"} delay={0}>
+                  <BentoGridItem key="system-monitor" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.15)"} delay={0} className="p-3">
                     <SystemMonitorCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.hardwareIdentity !== false && (
-                  <BentoGridItem key="hardware-specs" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.1)"} delay={0.1}>
+                  <BentoGridItem key="hardware-specs" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.1)"} delay={0.1} className="p-3">
                     <HardwareIdentityCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.vitalSigns !== false && (
-                  <BentoGridItem key="vital-signs" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.12)"} delay={0.15}>
+                  <BentoGridItem key="vital-signs" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.12)"} delay={0.15} className="p-3">
                     <VitalSignsCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.networkTelemetry !== false && (
-                  <BentoGridItem key="network-telemetry" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(168, 85, 247, 0.12)"} delay={0.2}>
+                  <BentoGridItem key="network-telemetry" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(168, 85, 247, 0.12)"} delay={0.2} className="p-3">
                     <NetworkTelemetryCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.processMatrix !== false && (
-                  <BentoGridItem key="process-matrix" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(34, 197, 94, 0.12)"} delay={0.25}>
+                  <BentoGridItem key="process-matrix" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(34, 197, 94, 0.12)"} delay={0.25} className="p-3">
                     <ProcessMatrixCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
@@ -927,27 +927,27 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
               )}
               <BentoGrid>
                 {effectiveWidgetVisibility.systemMonitor !== false && (
-                  <BentoGridItem key="system-monitor-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.15)"} delay={0}>
+                  <BentoGridItem key="system-monitor-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.15)"} delay={0} className="p-3">
                     <SystemMonitorCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.hardwareIdentity !== false && (
-                  <BentoGridItem key="hardware-specs-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.1)"} delay={0.1}>
+                  <BentoGridItem key="hardware-specs-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.1)"} delay={0.1} className="p-3">
                     <HardwareIdentityCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.vitalSigns !== false && (
-                  <BentoGridItem key="vital-signs-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.12)"} delay={0.15}>
+                  <BentoGridItem key="vital-signs-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(6, 182, 212, 0.12)"} delay={0.15} className="p-3">
                     <VitalSignsCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.networkTelemetry !== false && (
-                  <BentoGridItem key="network-telemetry-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(168, 85, 247, 0.12)"} delay={0.2}>
+                  <BentoGridItem key="network-telemetry-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(168, 85, 247, 0.12)"} delay={0.2} className="p-3">
                     <NetworkTelemetryCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}
                 {effectiveWidgetVisibility.processMatrix !== false && (
-                  <BentoGridItem key="process-matrix-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(34, 197, 94, 0.12)"} delay={0.25}>
+                  <BentoGridItem key="process-matrix-standalone" colSpan={2} rowSpan={widgetSizeMode === 'S' ? 1 : 2} spotlightColor={isLiteMode ? undefined : "rgba(34, 197, 94, 0.12)"} delay={0.25} className="p-3">
                     <ProcessMatrixCard forceCollapsed={widgetSizeMode === 'S' ? true : widgetSizeMode === 'L' ? false : undefined} />
                   </BentoGridItem>
                 )}

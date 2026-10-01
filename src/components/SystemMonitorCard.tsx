@@ -290,7 +290,7 @@ function LiquidOrb({ memUsage: rawMemUsage, isDark = true }: { memUsage: number;
   }, [clampedMemUsage, isDark])
 
   return (
-    <div className="relative w-20 h-20 mx-auto">
+    <div className="relative w-16 h-16 mx-auto">
       {/* 外圈发光 */}
       <div
         className="absolute inset-0 rounded-full animate-glow-pulse"
@@ -385,7 +385,7 @@ function LiquidOrb({ memUsage: rawMemUsage, isDark = true }: { memUsage: number;
       {/* 百分比显示 */}
       <div className="absolute inset-0 flex items-center justify-center">
         <span className={cn(
-          "text-sm font-mono font-bold drop-shadow-lg",
+          "text-xs font-mono font-bold drop-shadow-lg",
           isDark ? "text-white/90" : "text-slate-700"
         )}>
           <CountUp value={clampedMemUsage} decimals={0} suffix="%" />
@@ -464,8 +464,8 @@ function DiskRing({
   }, [diskLabel])
 
   return (
-    <motion.div 
-      className="relative w-20 h-20 mx-auto cursor-pointer"
+    <motion.div
+      className="relative w-16 h-16 mx-auto cursor-pointer"
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       whileHover={{ scale: 1.05 }}
@@ -934,8 +934,8 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
     <div className={cn(
       "relative overflow-hidden rounded-2xl",
       "backdrop-blur-xl",
-      "p-3 sm:p-4",
-      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
+      "p-3",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[240px]",
       isDark 
         ? "bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 border border-white/10"
         : "bg-gradient-to-br from-white/95 via-slate-50/90 to-white/95 border border-slate-200/60 shadow-xl shadow-blue-500/5",
@@ -974,12 +974,12 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
       <div className="relative z-10 flex items-center gap-2 mb-2">
         <div className="animate-spin-slow">
           <Cpu className={cn(
-            "w-4 h-4",
+            "w-3.5 h-3.5",
             isDark ? "text-cyan-400" : "text-blue-500"
           )} />
         </div>
         <span className={cn(
-          "text-sm font-medium",
+          "text-xs font-medium",
           isDark ? "text-white/80" : "text-slate-700"
         )}>{t('monitor.engine_room')}</span>
         
@@ -1032,7 +1032,7 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
             className="overflow-hidden"
           >
       {/* 主内容 */}
-      <div className="relative z-10 space-y-4 mt-2">
+      <div className="relative z-10 space-y-2.5 mt-1.5">
         {/* CPU 心电图 */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
@@ -1051,9 +1051,9 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
             </span>
           </div>
           <div className={cn(
-            "h-16 rounded-lg overflow-hidden border",
-            isDark 
-              ? "bg-black/30 border-white/5" 
+            "h-14 rounded-lg overflow-hidden border",
+            isDark
+              ? "bg-black/30 border-white/5"
               : "bg-slate-50/80 border-slate-200/50 shadow-inner"
           )}>
             <ECGWave cpuLoad={stats.cpuLoad} isDark={isDark} />
@@ -1061,7 +1061,7 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
         </div>
 
         {/* 内存和硬盘 - 并排显示 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {/* 内存 - 液态球 */}
           <div className="space-y-2">
             <div className={cn(
@@ -1079,9 +1079,9 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
         </div>
 
         {/* 运行时间 */}
-        <motion.div 
+        <motion.div
           className={cn(
-            "flex items-center justify-center gap-2 text-xs font-medium pt-2 border-t",
+            "flex items-center justify-center gap-2 text-[11px] font-medium pt-1.5 border-t",
             isDark 
               ? "text-white/60 border-white/10" 
               : "text-slate-500 border-slate-200/50"
