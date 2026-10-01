@@ -26,33 +26,41 @@ function setCache<T>(map: Map<string, { data: T; expires: number }>, key: string
 }
 
 // 城市名 -> 经纬度（Open-Meteo Geocoding；中文城市名自动转拼音重试）
-async function geocodeCity(cityName: string): Promise<{ lat: number; lon: number; name: string } | null> {
+// 返回 result 为 null 时通过 networkError 区分「网络失败」和「真查不到」
+async function geocodeCity(
+  cityName: string
+): Promise<{ result: { lat: number; lon: number; name: string } | null; networkError?: string }> {
   const key = cityName.toLowerCase()
   const cached = getCache(geocodeCache, key)
-  if (cached !== null) return cached
+  if (cached !== null) return { result: cached }
 
+  let networkError: string | undefined
   const searchOnce = async (name: string): Promise<{ lat: number; lon: number; name: string } | null> => {
     try {
       const res = await fetch(
         `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=zh&format=json`,
         { signal: AbortSignal.timeout(10000) }
       )
-      if (!res.ok) return null
+      if (!res.ok) {
+        networkError = `地理编码服务返回 ${res.status}`
+        return null
+      }
       const data = await res.json()
       if (data.results && data.results.length > 0) {
         const r = data.results[0]
         return { lat: r.latitude, lon: r.longitude, name: r.name || cityName }
       }
       return null
-    } catch {
+    } catch (err) {
+      networkError = err instanceof Error ? err.message : '地理编码请求失败'
       return null
     }
   }
 
-  // 第一次：用原始输入（兼容英文/拼音）
+  // 第一次：用原始输入（新版 Open-Meteo 已能识别部分中文）
   let result = await searchOnce(cityName)
 
-  // 第二次：中文输入转拼音重试（Open-Meteo 地理编码不识别大部分中文）
+  // 第二次：中文输入转拼音重试（兼容 Open-Meteo 不识别的中文地名）
   if (!result && /[\u4e00-\u9fff]/.test(cityName)) {
     const py = pinyin(cityName, { toneType: 'none', type: 'array' }).join('')
     if (py && py.toLowerCase() !== cityName.toLowerCase()) {
@@ -61,7 +69,7 @@ async function geocodeCity(cityName: string): Promise<{ lat: number; lon: number
   }
 
   setCache(geocodeCache, key, result)
-  return result
+  return { result, networkError }
 }
 
 // 经纬度 -> 城市名（仅用于展示，失败不影响主流程）
@@ -96,13 +104,18 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (cityParam) {
       const geo = await geocodeCity(cityParam)
-      if (!geo) {
-        res.status(404).json({ error: `城市未找到: ${cityParam}` })
+      if (!geo.result) {
+        if (geo.networkError) {
+          // 网络层面失败（容器无法访问地理编码服务等），与「真查不到」区分开，便于排障
+          res.status(502).json({ error: `天气服务网络异常: ${geo.networkError}` })
+        } else {
+          res.status(404).json({ error: `城市未找到: ${cityParam}` })
+        }
         return
       }
-      lat = geo.lat
-      lon = geo.lon
-      cityName = geo.name
+      lat = geo.result.lat
+      lon = geo.result.lon
+      cityName = geo.result.name
     } else if (!isNaN(latParam) && !isNaN(lonParam)) {
       lat = latParam
       lon = lonParam
