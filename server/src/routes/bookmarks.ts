@@ -1,0 +1,367 @@
+import { Router, Request, Response } from 'express'
+import { generateId } from '../db.js'
+import { queryAll, queryOne, run, runBatch, booleanize, parseBookmarkTags, serializeTags, parseTags } from '../utils/index.js'
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/index.js'
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+  idParamSchema,
+  createBookmarkSchema,
+  updateBookmarkSchema,
+  reorderBookmarksSchema,
+  paginationQuerySchema,
+  PaginationQuery,
+} from '../schemas.js'
+
+const router = Router()
+
+// 获取所有已使用的标签列表（简版，用于下拉建议）
+router.get('/tags', (_req, res) => {
+  try {
+    const rows = queryAll("SELECT DISTINCT tags FROM bookmarks WHERE tags IS NOT NULL AND tags != ''")
+    const tagSet = new Set<string>()
+    rows.forEach((r: any) => {
+      parseTags(r.tags).forEach((t: string) => tagSet.add(t))
+    })
+    res.json([...tagSet].sort())
+  } catch (error) {
+    console.error('获取标签列表失败:', error)
+    res.status(500).json({ error: '获取标签列表失败' })
+  }
+})
+
+// 获取标签列表（带使用计数，用于标签管理）
+router.get('/tags/stats', (_req, res) => {
+  try {
+    const rows = queryAll("SELECT tags FROM bookmarks WHERE tags IS NOT NULL AND tags != ''")
+    const tagCountMap = new Map<string, number>()
+    rows.forEach((r: any) => {
+      parseTags(r.tags).forEach((t: string) => {
+        tagCountMap.set(t, (tagCountMap.get(t) || 0) + 1)
+      })
+    })
+    const result = [...tagCountMap.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+    res.json(result)
+  } catch (error) {
+    console.error('获取标签统计失败:', error)
+    res.status(500).json({ error: '获取标签统计失败' })
+  }
+})
+
+// 重命名标签（也用于合并：将 oldName 改为 newName）
+router.patch('/tags/rename', authMiddleware, (req: Request, res: Response) => {
+  try {
+    const { oldName, newName } = req.body
+    if (!oldName || !newName || typeof oldName !== 'string' || typeof newName !== 'string') {
+      return res.status(400).json({ error: '参数 oldName 和 newName 必填' })
+    }
+    const trimOld = oldName.trim()
+    const trimNew = newName.trim()
+    if (!trimOld || !trimNew) {
+      return res.status(400).json({ error: '标签名不能为空' })
+    }
+
+    // 查找所有包含 oldName 标签的书签
+    const rows = queryAll("SELECT id, tags FROM bookmarks WHERE tags IS NOT NULL AND tags != ''")
+    let updatedCount = 0
+    rows.forEach((r: any) => {
+      const tagArr = r.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+      const idx = tagArr.indexOf(trimOld)
+      if (idx === -1) return
+      // 替换为 newName，并去重
+      tagArr[idx] = trimNew
+      const deduped = [...new Set(tagArr)]
+      const newTags = deduped.join(',')
+      if (newTags !== r.tags) {
+        run('UPDATE bookmarks SET tags = ?, updatedAt = ? WHERE id = ?', [newTags || null, new Date().toISOString(), r.id])
+        updatedCount++
+      }
+    })
+
+    res.json({ success: true, updatedCount })
+  } catch (error) {
+    console.error('重命名标签失败:', error)
+    res.status(500).json({ error: '重命名标签失败' })
+  }
+})
+
+// 删除标签（从所有书签中移除该标签）
+router.delete('/tags/:name', authMiddleware, (req: Request, res: Response) => {
+  try {
+    const tagName = decodeURIComponent(req.params.name).trim()
+    if (!tagName) {
+      return res.status(400).json({ error: '标签名不能为空' })
+    }
+
+    const rows = queryAll("SELECT id, tags FROM bookmarks WHERE tags IS NOT NULL AND tags != ''")
+    let updatedCount = 0
+    rows.forEach((r: any) => {
+      const tagArr = r.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+      const filtered = tagArr.filter((t: string) => t !== tagName)
+      if (filtered.length !== tagArr.length) {
+        const newTags = filtered.join(',') || null
+        run('UPDATE bookmarks SET tags = ?, updatedAt = ? WHERE id = ?', [newTags, new Date().toISOString(), r.id])
+        updatedCount++
+      }
+    })
+
+    res.json({ success: true, updatedCount })
+  } catch (error) {
+    console.error('删除标签失败:', error)
+    res.status(500).json({ error: '删除标签失败' })
+  }
+})
+
+// 获取所有书签（兼容旧版）
+router.get('/', optionalAuthMiddleware, (req, res) => {
+  try {
+    // 私人模式检查：未登录用户无法获取书签
+    const accessMode = queryOne('SELECT value FROM settings WHERE key = ?', ['accessMode'])
+    if (accessMode?.value === 'private' && !(req as any).user) {
+      return res.json([])
+    }
+
+    const isLoggedIn = !!(req as any).user
+
+    const bookmarks = queryAll(`
+      SELECT * FROM bookmarks 
+      ${!isLoggedIn ? "WHERE (visibility IS NULL OR visibility = 'public')" : ''}
+      ORDER BY isPinned DESC, orderIndex ASC, createdAt DESC
+    `)
+    
+    res.json(bookmarks.map(booleanize).map(parseBookmarkTags))
+  } catch (error) {
+    console.error('获取书签失败:', error)
+    res.status(500).json({ error: '获取书签失败' })
+  }
+})
+
+// 分页获取书签
+router.get('/paginated', optionalAuthMiddleware, validateQuery(paginationQuerySchema), (req, res) => {
+  try {
+    // 私人模式检查：未登录用户无法获取书签
+    const accessMode = queryOne('SELECT value FROM settings WHERE key = ?', ['accessMode'])
+    if (accessMode?.value === 'private' && !(req as any).user) {
+      return res.json({
+        items: [],
+        pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0, hasMore: false }
+      })
+    }
+
+    const isLoggedIn = !!(req as any).user
+
+    const query = (req as any).validatedQuery as PaginationQuery
+    const { page, pageSize, search, category, tag, isPinned, isReadLater, sortBy, sortOrder } = query
+    
+    // 构建 WHERE 条件
+    const conditions: string[] = []
+    const params: any[] = []
+
+    // 未登录用户只能看到公开书签
+    if (!isLoggedIn) {
+      conditions.push("(visibility IS NULL OR visibility = 'public')")
+    }
+    
+    if (search) {
+      // 分词搜索：按空格拆分关键词，每个关键词都必须在 title/url/description/tags 中匹配
+      const keywords = search.trim().split(/\s+/).filter((k: string) => k.length > 0)
+      if (keywords.length === 1) {
+        conditions.push('(title LIKE ? OR url LIKE ? OR description LIKE ? OR tags LIKE ?)')
+        const searchPattern = `%${keywords[0]}%`
+        params.push(searchPattern, searchPattern, searchPattern, searchPattern)
+      } else {
+        // 多关键词 AND 搜索
+        const keywordConditions = keywords.map(() =>
+          '(title LIKE ? OR url LIKE ? OR description LIKE ? OR tags LIKE ?)'
+        )
+        conditions.push(`(${keywordConditions.join(' AND ')})`)
+        keywords.forEach((kw: string) => {
+          const pattern = `%${kw}%`
+          params.push(pattern, pattern, pattern, pattern)
+        })
+      }
+    }
+    
+    if (category) {
+      if (category === 'uncategorized') {
+        conditions.push('(category IS NULL OR category = "")')
+      } else {
+        conditions.push('category = ?')
+        params.push(category)
+      }
+    }
+
+    if (tag) {
+      // 支持精确匹配单个标签（标签以逗号分隔存储）
+      conditions.push("(',' || tags || ',' LIKE ?)")
+      params.push(`%,${tag},%`)
+    }
+    
+    if (typeof isPinned === 'boolean') {
+      conditions.push('isPinned = ?')
+      params.push(isPinned ? 1 : 0)
+    }
+    
+    if (typeof isReadLater === 'boolean') {
+      conditions.push('isReadLater = ?')
+      params.push(isReadLater ? 1 : 0)
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    
+    // 获取总数
+    const countResult = queryOne(`SELECT COUNT(*) as total FROM bookmarks ${whereClause}`, params)
+    const total = countResult?.total || 0
+    
+    // 计算分页
+    const offset = (page - 1) * pageSize
+    const totalPages = Math.ceil(total / pageSize)
+    
+    // 构建排序 - 始终优先按 isPinned 排序
+    let orderClause = 'ORDER BY isPinned DESC'
+    if (sortBy === 'orderIndex') {
+      orderClause += `, orderIndex ${sortOrder.toUpperCase()}, createdAt DESC`
+    } else {
+      orderClause += `, ${sortBy} ${sortOrder.toUpperCase()}`
+    }
+    
+    // 查询数据
+    const bookmarks = queryAll(`
+      SELECT * FROM bookmarks 
+      ${whereClause}
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `, [...params, pageSize, offset])
+    
+    res.json({
+      items: bookmarks.map(booleanize).map(parseBookmarkTags),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasMore: page < totalPages,
+      }
+    })
+  } catch (error) {
+    console.error('分页获取书签失败:', error)
+    res.status(500).json({ error: '分页获取书签失败' })
+  }
+})
+
+// 创建书签
+router.post('/', authMiddleware, validateBody(createBookmarkSchema), (req, res) => {
+  try {
+    const { url, internalUrl, title, description, favicon, ogImage, icon, iconUrl, category, tags, isReadLater, visibility } = req.body
+    
+    // 获取默认可见性设置
+    let bookmarkVisibility = visibility || 'public'
+    if (!visibility) {
+      const defaultVis = queryOne('SELECT value FROM settings WHERE key = ?', ['defaultBookmarkVisibility'])
+      if (defaultVis?.value === 'private') {
+        bookmarkVisibility = 'private'
+      }
+    }
+    
+    const maxOrder = queryOne('SELECT MAX(orderIndex) as max FROM bookmarks')
+    const newOrderIndex = (maxOrder?.max ?? -1) + 1
+    
+    const id = generateId()
+    const now = new Date().toISOString()
+    
+    run(`
+      INSERT INTO bookmarks (id, url, internalUrl, title, description, favicon, ogImage, icon, iconUrl, category, tags, orderIndex, isReadLater, visibility, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [id, url, internalUrl || null, title, description || null, favicon || null, ogImage || null, icon || null, iconUrl || null, category || null, serializeTags(tags), newOrderIndex, isReadLater ? 1 : 0, bookmarkVisibility, now, now])
+    
+    const bookmark = queryOne('SELECT * FROM bookmarks WHERE id = ?', [id])
+    
+    res.status(201).json(parseBookmarkTags(booleanize(bookmark)))
+  } catch (error) {
+    console.error('创建书签失败:', error)
+    res.status(500).json({ error: '创建书签失败' })
+  }
+})
+
+// 重排序书签（必须在 /:id 之前定义）
+router.patch('/reorder', authMiddleware, validateBody(reorderBookmarksSchema), (req, res) => {
+  try {
+    const { items } = req.body
+    
+    runBatch(items.map((item: { id: string; orderIndex: number }) => ({
+      sql: 'UPDATE bookmarks SET orderIndex = ? WHERE id = ?',
+      params: [item.orderIndex, item.id],
+    })))
+    
+    res.json({ success: true })
+  } catch (error) {
+    console.error('重排序失败:', error)
+    res.status(500).json({ error: '重排序失败' })
+  }
+})
+
+// 更新书签
+router.patch('/:id', authMiddleware, validateParams(idParamSchema), validateBody(updateBookmarkSchema), (req, res) => {
+  try {
+    const { id } = req.params
+    const updates = req.body
+    const now = new Date().toISOString()
+    
+    // 获取当前书签
+    const current = queryOne('SELECT * FROM bookmarks WHERE id = ?', [id])
+    if (!current) {
+      return res.status(404).json({ error: '书签不存在' })
+    }
+    
+    // 合并更新（tags 需要序列化）
+    if (updates.tags !== undefined) {
+      updates.tags = serializeTags(updates.tags)
+    }
+    // 空字符串统一转为 null：允许前端通过发送 "" 来清除字段（否则合并时会保留旧值）
+    const clearableFields = ['internalUrl', 'description', 'favicon', 'ogImage', 'icon', 'iconUrl', 'category'] as const
+    for (const field of clearableFields) {
+      if ((updates as Record<string, unknown>)[field] === '') {
+        ;(updates as Record<string, unknown>)[field] = null
+      }
+    }
+    const merged = { ...current, ...updates, updatedAt: now }
+    
+    run(`
+      UPDATE bookmarks SET 
+        url = ?, internalUrl = ?, title = ?, description = ?, favicon = ?, ogImage = ?, icon = ?, iconUrl = ?,
+        category = ?, tags = ?, orderIndex = ?, isPinned = ?, 
+        isReadLater = ?, isRead = ?, visibility = ?, updatedAt = ?
+      WHERE id = ?
+    `, [
+      merged.url, merged.internalUrl || null, merged.title, merged.description, merged.favicon, merged.ogImage, merged.icon, merged.iconUrl,
+      merged.category, merged.tags, merged.orderIndex, merged.isPinned ? 1 : 0,
+      merged.isReadLater ? 1 : 0, merged.isRead ? 1 : 0, merged.visibility || 'public', now, id
+    ])
+    
+    const bookmark = queryOne('SELECT * FROM bookmarks WHERE id = ?', [id])
+    
+    res.json(parseBookmarkTags(booleanize(bookmark)))
+  } catch (error) {
+    console.error('更新书签失败:', error)
+    res.status(500).json({ error: '更新书签失败' })
+  }
+})
+
+// 删除书签
+router.delete('/:id', authMiddleware, validateParams(idParamSchema), (req, res) => {
+  try {
+    const { id } = req.params
+    // 级联删除关联的访问记录
+    run('DELETE FROM visits WHERE bookmarkId = ?', [id])
+    run('DELETE FROM bookmarks WHERE id = ?', [id])
+    res.status(204).send()
+  } catch (error) {
+    console.error('删除书签失败:', error)
+    res.status(500).json({ error: '删除书签失败' })
+  }
+})
+
+export default router

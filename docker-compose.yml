@@ -1,0 +1,68 @@
+services:
+  nowen:
+    build: .
+    container_name: nowen
+    restart: unless-stopped
+    # 🔑 确保容器停止时有足够时间保存数据
+    stop_grace_period: 15s
+    ports:
+      # 生产 Web 入口；API 由容器内 Nginx 转发到 39001，不直接暴露到宿主机
+      - "39000:39000"
+    volumes:
+      # ========== 🔑 数据持久化（最重要！）==========
+      # 使用 Docker Named Volume，容器重建/更新后自动复用同一个卷
+      # ⚠️ 比 bind mount (./nowen-data) 更安全：
+      #   - Named Volume 在 docker-compose down 时不会删除（除非 -v 参数）
+      #   - 容器重建时自动挂载回同一个卷
+      #   - NAS Docker UI 更新镜像时也不会丢失
+      - nowen-data:/app/server/data
+      # ⚠️ 安全备份现在在镜像层内（/app/.nowen-safe），不再需要单独挂载
+      # 这样即使 NAS 更新容器时创建新的存储目录，镜像层内的备份仍然可用
+      # ========== 宿主机系统信息（只读）==========
+      # 挂载宿主机根目录，让 systeminformation 读取真实系统状态
+      - /:/host:ro
+      # 挂载 proc 文件系统，用于读取 CPU、内存等信息
+      - /proc:/host/proc:ro
+      # 挂载 sys 文件系统，用于读取温度、硬件信息
+      - /sys:/host/sys:ro
+      # ========== Docker Socket（用于读取容器状态）==========
+      # 🔑 关键：挂载 Docker socket，允许读取宿主机 Docker 容器状态
+      # 标准路径（大多数 Linux/NAS 系统）
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 备选：某些 NAS 系统（如绿联 UGREEN）可能使用不同路径
+      # 如果标准路径无效，请尝试取消下方注释：
+      # - /run/docker.sock:/var/run/docker.sock
+      # - /volume1/@docker/docker.sock:/var/run/docker.sock  # Synology
+    environment:
+      - NODE_ENV=production
+      - PORT=39001
+      # ========== 系统信息读取路径 ==========
+      # 告诉 systeminformation 从 /host 路径读取文件系统信息
+      - SI_FILESYSTEM_DISK_PREFIX=/host
+      # 设置 proc 路径
+      - PROC_PATH=/host/proc
+      # 设置 sys 路径  
+      - SYS_PATH=/host/sys
+      # 文件系统根路径
+      - FS_PATH=/host
+      # ========== AI 智能分类（可选）==========
+      # - AI_PROVIDER=openai          # openai | gemini | custom
+      # - AI_API_KEY=sk-xxx
+      # - AI_MODEL=gpt-4o-mini
+      # - AI_API_BASE=                # 自定义 API 地址（Ollama 等）
+    # ========== 权限设置 ==========
+    # 🔑 特权模式：允许读取 CPU 温度、SMART 磁盘信息、完整硬件信息
+    # 对于绿联/飞牛 OS 等 NAS 系统，这是必需的
+    privileged: true
+    # 可选：如果不想使用 privileged，可以尝试使用 capabilities（更安全但可能功能受限）
+    # cap_add:
+    #   - SYS_PTRACE
+    #   - NET_ADMIN
+
+# 🔑 Named Volumes 声明
+# Docker 会在宿主机上创建持久化的命名卷
+# 容器删除/重建/更新镜像后，命名卷数据不受影响
+# 除非用户主动执行 docker volume rm
+volumes:
+  nowen-data:
+    name: nowen-data

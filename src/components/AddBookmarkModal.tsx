@@ -1,0 +1,1480 @@
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X, Plus, Loader2, Check, AlertCircle, Sparkles, BookmarkPlus, ChevronDown, Settings, Link2, Image, FolderPlus, Search, Network, Globe, Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Bookmark, Category, CustomIcon } from '../types/bookmark'
+import { metadataApi, categoryApi, aiApi, bookmarkApi } from '../lib/api'
+import { cn } from '../lib/utils'
+import { presetIcons } from '../lib/icons'
+import { IconifyPicker } from './IconifyPicker'
+import { IconRenderer } from './IconRenderer'
+import { TagInput } from './ui/TagInput'
+
+interface AddBookmarkModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onAdd: (bookmark: Omit<Bookmark, 'id' | 'orderIndex' | 'createdAt' | 'updatedAt'>) => void | Promise<void>
+  categories: Category[]
+  customIcons?: CustomIcon[]
+  initialUrl?: string
+  editBookmark?: Bookmark | null
+  onOpenIconManager?: () => void
+  onCategoryAdded?: (category: Category) => void
+  enableAutoAi?: boolean  // 是否自动触发 AI 分类（默认 true，可在设置中关闭）
+  defaultVisibility?: 'public' | 'private'  // 新书签默认可见性
+}
+
+// 骨架屏组件
+function FieldSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn('skeleton rounded-lg', className)} />
+  )
+}
+
+/**
+ * 将原始 AI 错误信息（例如后端透传的 OpenAI / 阿里云 / 网络错误）
+ * 映射为用户友好的本地化提示。
+ */
+function mapAiError(err: any, t: (key: string) => string): string {
+  const raw: string = (err?.message || err?.toString?.() || '').toString()
+  const msg = raw.toLowerCase()
+
+  // 401 / 鉴权失败 / API Key 无效
+  if (
+    msg.includes('401') ||
+    msg.includes('invalid_api_key') ||
+    msg.includes('incorrect api key') ||
+    msg.includes('invalid api key') ||
+    msg.includes('unauthorized') ||
+    msg.includes('authentication') ||
+    msg.includes('apikey-error')
+  ) {
+    return t('bookmark.modal.ai_error_invalid_key')
+  }
+
+  // 限流
+  if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many requests')) {
+    return t('bookmark.modal.ai_error_rate_limit')
+  }
+
+  // 额度 / 余额不足
+  if (
+    msg.includes('quota') ||
+    msg.includes('insufficient') ||
+    msg.includes('balance') ||
+    msg.includes('billing')
+  ) {
+    return t('bookmark.modal.ai_error_quota')
+  }
+
+  // 超时
+  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('etimedout')) {
+    return t('bookmark.modal.ai_error_timeout')
+  }
+
+  // 网络错误
+  if (
+    msg.includes('failed to fetch') ||
+    msg.includes('network') ||
+    msg.includes('econnrefused') ||
+    msg.includes('econnreset') ||
+    msg.includes('enotfound')
+  ) {
+    return t('bookmark.modal.ai_error_network')
+  }
+
+  // 服务端错误（5xx）
+  if (
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('504') ||
+    msg.includes('internal server error') ||
+    msg.includes('bad gateway') ||
+    msg.includes('service unavailable')
+  ) {
+    return t('bookmark.modal.ai_error_server')
+  }
+
+  // 未配置
+  if (msg.includes('not configured') || msg.includes('未配置') || msg.includes('not set')) {
+    return t('bookmark.modal.ai_error_not_configured')
+  }
+
+  // 兜底通用错误
+  return t('bookmark.modal.ai_error')
+}
+
+export function AddBookmarkModal({
+  isOpen,
+  onClose,
+  onAdd,
+  categories,
+  customIcons = [],
+  initialUrl = '',
+  editBookmark = null,
+  onOpenIconManager,
+  onCategoryAdded,
+  enableAutoAi = true,
+  defaultVisibility = 'public',
+}: AddBookmarkModalProps) {
+  const { t, i18n } = useTranslation()
+  const [url, setUrl] = useState(initialUrl)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [favicon, setFavicon] = useState('')
+  const [icon, setIcon] = useState('')  // lucide 图标名称
+  const [iconUrl, setIconUrl] = useState('')  // 自定义图标 URL
+  const [iconUrlInput, setIconUrlInput] = useState('')  // URL 输入框
+  const [iconTab, setIconTab] = useState<'preset' | 'iconify' | 'custom' | 'url'>('preset')
+  const [showIconPicker, setShowIconPicker] = useState(false)
+  const [category, setCategory] = useState('')
+  const [internalUrl, setInternalUrl] = useState('')  // 内网链接
+  const [showInternalUrl, setShowInternalUrl] = useState(false)  // 是否展开内网链接输入
+  const [isReadLater, setIsReadLater] = useState(false)
+  const [visibility, setVisibility] = useState<'public' | 'private'>(defaultVisibility)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [hasAnalyzed, setHasAnalyzed] = useState(false)
+  const [error, setError] = useState('')
+  const [shake, setShake] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const iconPickerRef = useRef<HTMLDivElement>(null)
+  
+  // 新增分类相关状态
+  const [showAddCategory, setShowAddCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [addCategoryError, setAddCategoryError] = useState('')
+
+  // AI 魔法分类状态
+  const [isAiProcessing, setIsAiProcessing] = useState(false)
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null)
+  const [aiTags, setAiTags] = useState<string[]>([])
+  const [aiApplied, setAiApplied] = useState(false)
+
+  // 标签状态
+  const [tags, setTags] = useState<string[]>([])
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([])
+  
+  // 预设颜色
+  const categoryColors = [
+    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', 
+    '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+  ]
+  const [selectedColor, setSelectedColor] = useState(categoryColors[0])
+
+  // 编辑模式初始化
+  useEffect(() => {
+    if (editBookmark) {
+      setUrl(editBookmark.url)
+      setTitle(editBookmark.title)
+      setDescription(editBookmark.description || '')
+      setFavicon(editBookmark.favicon || '')
+      setIcon(editBookmark.icon || '')
+      setIconUrl(editBookmark.iconUrl || '')
+      setIconUrlInput(editBookmark.iconUrl || '')
+      setCategory(editBookmark.category || '')
+      setInternalUrl(editBookmark.internalUrl || '')
+      setShowInternalUrl(!!editBookmark.internalUrl)
+      setIsReadLater(editBookmark.isReadLater || false)
+      setVisibility(editBookmark.visibility || 'public')
+      setTags(editBookmark.tags || [])
+      setHasAnalyzed(true)
+      // 判断使用哪个 tab
+      if (editBookmark.iconUrl) {
+        // 检查是否是自定义图标库中的
+        const isCustomIcon = customIcons.some(ci => ci.url === editBookmark.iconUrl)
+        setIconTab(isCustomIcon ? 'custom' : 'url')
+      } else if (editBookmark.icon) {
+        setIconTab('preset')
+      }
+    } else if (initialUrl) {
+      setUrl(initialUrl)
+      // Bookmarklet 唤起：若提前存入了 title，则先填上，再后台 AI 分析补全 favicon/description
+      let pendingTitle = ''
+      try {
+        pendingTitle = sessionStorage.getItem('pending_bookmark_title') || ''
+        if (pendingTitle) sessionStorage.removeItem('pending_bookmark_title')
+      } catch {}
+      if (pendingTitle) setTitle(pendingTitle)
+      analyzeUrl(initialUrl)
+    }
+  }, [editBookmark, initialUrl, customIcons])
+
+  // 打开时聚焦
+  useEffect(() => {
+    if (isOpen && !editBookmark) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+    // 检查 AI 配置状态
+    if (isOpen && aiConfigured === null) {
+      aiApi.status().then(s => setAiConfigured(s.configured)).catch(() => setAiConfigured(false))
+    }
+    // 加载标签建议
+    if (isOpen && tagSuggestions.length === 0) {
+      bookmarkApi.tags().then(setTagSuggestions).catch(() => {})
+    }
+  }, [isOpen, editBookmark])
+
+  // 重置表单
+  useEffect(() => {
+    if (!isOpen) {
+      setUrl('')
+      setTitle('')
+      setDescription('')
+      setFavicon('')
+      setIcon('')
+      setIconUrl('')
+      setIconUrlInput('')
+      setIconTab('preset')
+      setCategory('')
+      setInternalUrl('')
+      setShowInternalUrl(false)
+      setIsReadLater(false)
+      setVisibility(defaultVisibility)
+      setError('')
+      setHasAnalyzed(false)
+      setShowIconPicker(false)
+      setAiTags([])
+      setAiApplied(false)
+      setTags([])
+    }
+  }, [isOpen])
+
+  // 点击外部关闭图标选择器
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (iconPickerRef.current && !iconPickerRef.current.contains(event.target as Node)) {
+        setShowIconPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // 标记是否需要在 analyzeUrl 完成后自动触发 AI
+  const pendingAutoAiRef = useRef(false)
+
+  // 智能抓取元数据
+  const analyzeUrl = async (inputUrl: string) => {
+    if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+      return
+    }
+
+    setIsAnalyzing(true)
+    setHasAnalyzed(false)
+    setError('')
+    setTitle('')
+    setDescription('')
+    setFavicon('')
+
+    try {
+      const metadata = await metadataApi.parse(inputUrl, i18n.language)
+      
+      if (metadata.error) {
+        throw new Error(metadata.error)
+      }
+
+      setTitle(metadata.title || '')
+      setDescription(metadata.description || '')
+      setFavicon(metadata.favicon || '')
+      setHasAnalyzed(true)
+      // 标记需要自动触发 AI（非编辑模式 且 enableAutoAi 开启）
+      if (!editBookmark && enableAutoAi) {
+        pendingAutoAiRef.current = true
+      }
+    } catch (err) {
+      console.error('抓取失败:', err)
+      // 使用默认值
+      try {
+        const urlObj = new URL(inputUrl)
+        const domain = urlObj.hostname.replace('www.', '')
+        setTitle(domain.charAt(0).toUpperCase() + domain.slice(1).split('.')[0])
+        setFavicon(`https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`)
+        setHasAnalyzed(true)
+        // 标记需要自动触发 AI（非编辑模式 且 enableAutoAi 开启）
+        if (!editBookmark && enableAutoAi) {
+          pendingAutoAiRef.current = true
+        }
+        // 震动提示
+        setShake(true)
+        setTimeout(() => setShake(false), 500)
+      } catch {
+        setError(t('bookmark.modal.url_parse_error'))
+      }
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // analyzeUrl 完成后自动触发 AI 魔法标签
+  useEffect(() => {
+    if (pendingAutoAiRef.current && hasAnalyzed && !isAnalyzing && aiConfigured && title && url && !editBookmark && !isAiProcessing && !aiApplied) {
+      pendingAutoAiRef.current = false
+      handleAiCategorize()
+    }
+  }, [hasAnalyzed, isAnalyzing, aiConfigured, title])
+
+  // 监听粘贴事件
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const pastedText = e.clipboardData.getData('text')
+    if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
+      setTimeout(() => analyzeUrl(pastedText), 100)
+    }
+  }
+
+  const handleUrlBlur = () => {
+    if (url && !hasAnalyzed) {
+      analyzeUrl(url)
+    }
+  }
+
+  // AI 魔法分类
+  const handleAiCategorize = async () => {
+    if (!url || !title || isAiProcessing) return
+
+    setIsAiProcessing(true)
+    setError('')
+
+    try {
+      const result = await aiApi.categorize({
+        url,
+        title,
+        description: description || undefined,
+        lang: i18n.language,
+      })
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      // 自动填充分类
+      if (result.categoryId) {
+        setCategory(result.categoryId)
+      } else if (result.isNewCategory && result.category) {
+        // AI 建议的是新分类，暂时不自动创建，只显示建议名称
+        // 在分类下拉框旁边提示
+        setCategory('')
+      }
+
+      // 优化描述
+      if (result.summary && result.summary.length > 0) {
+        setDescription(result.summary)
+      }
+
+      // 设置标签（同时应用到实际 tags 和展示用的 aiTags）
+      if (result.tags && result.tags.length > 0) {
+        setAiTags(result.tags)
+        setTags(prev => {
+          const merged = new Set([...prev, ...result.tags])
+          return [...merged]
+        })
+      }
+
+      setAiApplied(true)
+    } catch (err: any) {
+      console.error('AI 分类失败:', err)
+      setError(mapAiError(err, t))
+    } finally {
+      setIsAiProcessing(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!url || !title) {
+      setError(t('bookmark.modal.required_error'))
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
+      return
+    }
+
+    // 如果用户在 URL tab 中输入了图片 URL 但未点击"使用此图片"，自动同步
+    const finalIconUrl = (iconTab === 'url' && iconUrlInput && !iconUrl) ? iconUrlInput : iconUrl
+
+    // 注意：这里必须用空字符串而不是 undefined。
+    // undefined 会被 JSON.stringify 丢弃，导致后端合并时保留旧值，
+    // 造成"图标/内网链接/描述清除后保存不生效"的问题。
+    await onAdd({
+      url,
+      internalUrl: internalUrl || '',
+      title,
+      description: description || '',
+      favicon: favicon || '',
+      icon: icon || '',
+      iconUrl: finalIconUrl || '',
+      category: category || '',
+      tags: tags.length > 0 ? tags : undefined,
+      isReadLater,
+      visibility,
+    })
+
+    onClose()
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* 背景遮罩 */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[99] bg-black/50 command-backdrop"
+            onClick={onClose}
+          />
+
+          {/* 模态框 */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ 
+              opacity: 1, 
+              scale: 1,
+              x: shake ? [0, -10, 10, -10, 10, 0] : 0,
+            }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ 
+              type: 'spring', 
+              damping: 25, 
+              stiffness: 300,
+              x: { duration: 0.4 }
+            }}
+            className={cn(
+              'fixed z-[100]',
+              'inset-0 m-auto',
+              'w-full max-w-lg h-[min(85vh,720px)]',
+              'flex flex-col overflow-hidden',
+              'rounded-2xl shadow-2xl border'
+            )}
+            style={{
+              background: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-glass-border)',
+            }}
+          >
+            {/* 头部 */}
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <BookmarkPlus className="w-5 h-5" style={{ color: 'var(--gradient-1)' }} />
+                <h2 
+                  className="text-lg font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {editBookmark ? t('bookmark.edit') : t('bookmark.add')}
+                </h2>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 表单 */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
+              {/* URL 输入 */}
+              <div>
+                <label 
+                  className="text-sm mb-2 flex items-center gap-2"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  URL
+                  {isAnalyzing && (
+                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--gradient-1)' }}>
+                      <Sparkles className="w-3 h-3 animate-pulse" />
+                      {t('bookmark.modal.analyzing')}
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    ref={inputRef}
+                    type="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onBlur={handleUrlBlur}
+                    onPaste={handlePaste}
+                    placeholder={t('bookmark.modal.url_placeholder')}
+                    className={cn(
+                      'w-full px-4 py-3 rounded-xl glass',
+                      'border border-white/10 focus:border-white/30',
+                      'outline-none transition-colors',
+                      'placeholder:text-white/30'
+                    )}
+                    style={{ color: 'var(--text-primary)' }}
+                  />
+                  {isAnalyzing && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--gradient-1)' }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 内网链接（可折叠） */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowInternalUrl(!showInternalUrl)}
+                  className="flex items-center gap-1.5 text-sm mb-2 hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Network className="w-3.5 h-3.5" />
+                  {t('bookmark.modal.internal_url')}
+                  <ChevronDown className={cn(
+                    'w-3.5 h-3.5 transition-transform duration-200',
+                    showInternalUrl && 'rotate-180'
+                  )} />
+                </button>
+                <AnimatePresence>
+                  {showInternalUrl && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <input
+                        type="url"
+                        value={internalUrl}
+                        onChange={(e) => setInternalUrl(e.target.value)}
+                        placeholder={t('bookmark.modal.internal_url_placeholder')}
+                        className={cn(
+                          'w-full px-4 py-3 rounded-xl glass',
+                          'border border-white/10 focus:border-white/30',
+                          'outline-none transition-colors',
+                          'placeholder:text-white/30'
+                        )}
+                        style={{ color: 'var(--text-primary)' }}
+                      />
+                      <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+                        {t('bookmark.modal.internal_url_hint')}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* 标题 - 带骨架屏 */}
+              <div>
+                <label 
+                  className="block text-sm mb-2"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {t('bookmark.modal.title')}
+                </label>
+                {isAnalyzing ? (
+                  <FieldSkeleton className="h-12 w-full" />
+                ) : (
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={t('bookmark.modal.title_placeholder')}
+                    className={cn(
+                      'w-full px-4 py-3 rounded-xl glass',
+                      'border border-white/10 focus:border-white/30',
+                      'outline-none transition-colors',
+                      'placeholder:text-white/30'
+                    )}
+                    style={{ color: 'var(--text-primary)' }}
+                  />
+                )}
+              </div>
+
+              {/* 描述 - 带骨架屏 */}
+              <div>
+                <label 
+                  className="block text-sm mb-2"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {t('bookmark.modal.description_optional')}
+                </label>
+                {isAnalyzing ? (
+                  <div className="space-y-2">
+                    <FieldSkeleton className="h-12 w-full" />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t('bookmark.modal.description_placeholder')}
+                    className={cn(
+                      'w-full px-4 py-3 rounded-xl glass',
+                      'border border-white/10 focus:border-white/30',
+                      'outline-none transition-colors',
+                      'placeholder:text-white/30'
+                    )}
+                    style={{ color: 'var(--text-primary)' }}
+                  />
+                )}
+              </div>
+
+              {/* AI 魔法分类按钮 */}
+              <AnimatePresence>
+                {aiConfigured && hasAnalyzed && !editBookmark && !isAnalyzing && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -8, height: 0 }}
+                    transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                  >
+                    <motion.button
+                      type="button"
+                      onClick={handleAiCategorize}
+                      disabled={isAiProcessing || !title}
+                      className={cn(
+                        'w-full px-4 py-3 rounded-xl',
+                        'border transition-all',
+                        'flex items-center justify-center gap-2',
+                        'text-sm font-medium',
+                        'disabled:opacity-50 disabled:cursor-not-allowed',
+                        aiApplied
+                          ? 'border-emerald-500/30'
+                          : 'border-purple-500/30 hover:border-purple-400/50'
+                      )}
+                      style={{
+                        background: aiApplied
+                          ? 'linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(6,182,212,0.1) 100%)'
+                          : 'linear-gradient(135deg, rgba(147,51,234,0.1) 0%, rgba(6,182,212,0.1) 100%)',
+                      }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                    >
+                      {isAiProcessing ? (
+                        <>
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                          >
+                            <Sparkles className="w-4 h-4" style={{ color: 'rgb(168,85,247)' }} />
+                          </motion.div>
+                          <span style={{ 
+                            background: 'linear-gradient(90deg, rgb(168,85,247), rgb(6,182,212))',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                          }}>
+                            {t('bookmark.modal.ai_thinking')}
+                          </span>
+                          <motion.span
+                            animate={{ opacity: [1, 0.3, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            style={{ color: 'rgb(168,85,247)' }}
+                          >
+                            ...
+                          </motion.span>
+                        </>
+                      ) : aiApplied ? (
+                        <>
+                          <Check className="w-4 h-4" style={{ color: 'rgb(16,185,129)' }} />
+                          <span style={{ color: 'rgb(16,185,129)' }}>
+                            {t('bookmark.modal.ai_applied')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" style={{ color: 'rgb(168,85,247)' }} />
+                          <span style={{ 
+                            background: 'linear-gradient(90deg, rgb(168,85,247), rgb(6,182,212))',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                          }}>
+                            {t('bookmark.modal.ai_magic')}
+                          </span>
+                        </>
+                      )}
+                    </motion.button>
+
+                    {/* AI 推荐标签展示 */}
+                    <AnimatePresence>
+                      {aiTags.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="flex flex-wrap gap-1.5 mt-2"
+                        >
+                          {aiTags.map((tag, i) => (
+                            <motion.span
+                              key={tag}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: i * 0.08 }}
+                              className="px-2.5 py-1 rounded-full text-xs"
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(147,51,234,0.15) 0%, rgba(6,182,212,0.15) 100%)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid rgba(147,51,234,0.2)',
+                              }}
+                            >
+                              #{tag}
+                            </motion.span>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* 标签输入 */}
+              {hasAnalyzed && (
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                    {t('bookmark.modal.tags')}
+                  </label>
+                  <TagInput
+                    tags={tags}
+                    onChange={setTags}
+                    suggestions={tagSuggestions}
+                    placeholder={t('bookmark.modal.tags_placeholder')}
+                  />
+                </div>
+              )}
+
+              {/* 图标选择 */}
+              <div ref={iconPickerRef} className="relative z-20">
+                <div className="flex items-center justify-between mb-2">
+                  <label 
+                    className="text-sm"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {t('bookmark.modal.custom_icon')}
+                  </label>
+                  {onOpenIconManager && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowIconPicker(false)
+                        onOpenIconManager()
+                      }}
+                      className="text-xs flex items-center gap-1 hover:opacity-80 transition-opacity"
+                      style={{ color: 'var(--gradient-1)' }}
+                    >
+                      <Settings className="w-3 h-3" />
+                      {t('bookmark.modal.manage_icons')}
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowIconPicker(!showIconPicker)}
+                  className={cn(
+                    'w-full px-4 py-3 rounded-xl glass',
+                    'border border-white/10 hover:border-white/30',
+                    'transition-colors flex items-center justify-between'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    {iconUrl ? (
+                      <>
+                        <img src={iconUrl} alt="" className="w-5 h-5 object-contain" />
+                        <span style={{ color: 'var(--text-primary)' }} className="truncate max-w-[200px]">
+                          {customIcons.find(ci => ci.url === iconUrl)?.name || t('bookmark.modal.custom_image')}
+                        </span>
+                      </>
+                    ) : icon ? (
+                      <>
+                        <IconRenderer icon={icon} className="w-5 h-5" style={{ color: 'var(--gradient-1)' }} />
+                        <span style={{ color: 'var(--text-primary)' }}>{icon}</span>
+                      </>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>{t('bookmark.modal.use_website_icon')}</span>
+                    )}
+                  </div>
+                  <ChevronDown 
+                    className={cn(
+                      'w-4 h-4 transition-transform flex-shrink-0',
+                      showIconPicker && 'rotate-180'
+                    )} 
+                    style={{ color: 'var(--text-muted)' }} 
+                  />
+                </button>
+
+                {/* 图标选择器弹出层 - 向上弹出 */}
+                <AnimatePresence>
+                  {showIconPicker && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className={cn(
+                        'absolute z-50 left-0 right-0 bottom-full mb-2',
+                        'p-3 rounded-xl shadow-xl',
+                        'border',
+                        'max-h-[340px] overflow-y-auto'
+                      )}
+                      style={{
+                        background: 'var(--color-bg-secondary)',
+                        borderColor: 'var(--color-glass-border)',
+                      }}
+                    >
+                      {/* Tab 切换 */}
+                      <div 
+                        className="flex gap-1 mb-3 p-1 rounded-lg"
+                        style={{ background: 'var(--color-bg-tertiary)' }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setIconTab('preset')}
+                          className={cn(
+                            'flex-1 px-2 py-1.5 rounded-md text-xs transition-colors'
+                          )}
+                          style={{ 
+                            background: iconTab === 'preset' ? 'var(--color-bg-secondary)' : 'transparent',
+                            color: iconTab === 'preset' ? 'var(--color-text-primary)' : 'var(--color-text-muted)'
+                          }}
+                        >
+                          {t('bookmark.modal.preset_icons')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIconTab('iconify')}
+                          className={cn(
+                            'flex-1 px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-center gap-1'
+                          )}
+                          style={{ 
+                            background: iconTab === 'iconify' ? 'var(--color-bg-secondary)' : 'transparent',
+                            color: iconTab === 'iconify' ? 'var(--color-text-primary)' : 'var(--color-text-muted)'
+                          }}
+                        >
+                          <Search className="w-3 h-3" />
+                          {t('bookmark.modal.iconify_icons')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIconTab('custom')}
+                          className={cn(
+                            'flex-1 px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-center gap-1'
+                          )}
+                          style={{ 
+                            background: iconTab === 'custom' ? 'var(--color-bg-secondary)' : 'transparent',
+                            color: iconTab === 'custom' ? 'var(--color-text-primary)' : 'var(--color-text-muted)'
+                          }}
+                        >
+                          <Image className="w-3 h-3" />
+                          {t('bookmark.modal.my_icons')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIconTab('url')}
+                          className={cn(
+                            'flex-1 px-2 py-1.5 rounded-md text-xs transition-colors flex items-center justify-center gap-1'
+                          )}
+                          style={{ 
+                            background: iconTab === 'url' ? 'var(--color-bg-secondary)' : 'transparent',
+                            color: iconTab === 'url' ? 'var(--color-text-primary)' : 'var(--color-text-muted)'
+                          }}
+                        >
+                          <Link2 className="w-3 h-3" />
+                          URL
+                        </button>
+                      </div>
+
+                      {/* 清除选项 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIcon('')
+                          setIconUrl('')
+                          setIconUrlInput('')
+                          setShowIconPicker(false)
+                        }}
+                        className={cn(
+                          'w-full px-3 py-2 mb-2 rounded-lg',
+                          'text-sm text-left transition-colors'
+                        )}
+                        style={{ 
+                          color: 'var(--color-text-secondary)',
+                          background: !icon && !iconUrl ? 'var(--color-bg-tertiary)' : 'transparent'
+                        }}
+                      >
+                        {t('bookmark.modal.use_website_icon')}
+                      </button>
+                      
+                      <div 
+                        className="my-2" 
+                        style={{ borderTop: '1px solid var(--color-glass-border)' }}
+                      />
+                      
+                      {/* 预设图标网格 */}
+                      {iconTab === 'preset' && (
+                        <div className="grid grid-cols-6 gap-1">
+                          {presetIcons.map(({ name, icon: IconComp }) => (
+                            <motion.button
+                              key={name}
+                              type="button"
+                              onClick={() => {
+                                setIcon(name)
+                                setIconUrl('')
+                                setShowIconPicker(false)
+                              }}
+                              className={cn(
+                                'p-2.5 rounded-lg transition-colors'
+                              )}
+                              style={{
+                                background: icon === name && !iconUrl ? 'var(--color-bg-tertiary)' : 'transparent',
+                                boxShadow: icon === name && !iconUrl ? 'inset 0 0 0 1px var(--color-primary)' : 'none'
+                              }}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                              title={name}
+                            >
+                              <IconComp 
+                                className="w-5 h-5 mx-auto" 
+                                style={{ color: icon === name && !iconUrl ? 'var(--color-primary)' : 'var(--color-text-secondary)' }} 
+                              />
+                            </motion.button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Iconify 搜索图标 */}
+                      {iconTab === 'iconify' && (
+                        <IconifyPicker
+                          selectedIcon={icon}
+                          onSelect={(iconName) => {
+                            setIcon(iconName)
+                            setIconUrl('')
+                            setShowIconPicker(false)
+                          }}
+                        />
+                      )}
+
+                      {/* 自定义图标库 */}
+                      {iconTab === 'custom' && (
+                        <div>
+                          {customIcons.length === 0 ? (
+                            <div 
+                              className="text-center py-6"
+                              style={{ color: 'var(--color-text-muted)' }}
+                            >
+                              <Image className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">{t('bookmark.modal.no_custom_icons')}</p>
+                              {onOpenIconManager && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowIconPicker(false)
+                                    onOpenIconManager()
+                                  }}
+                                  className="text-xs mt-2 hover:opacity-80"
+                                  style={{ color: 'var(--color-primary)' }}
+                                >
+                                  {t('bookmark.modal.go_add')}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-5 gap-2">
+                              {customIcons.map((customIcon) => (
+                                <motion.button
+                                  key={customIcon.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setIconUrl(customIcon.url)
+                                    setIcon('')
+                                    setShowIconPicker(false)
+                                  }}
+                                  className={cn(
+                                    'p-2 rounded-lg transition-colors'
+                                  )}
+                                  style={{
+                                    background: iconUrl === customIcon.url ? 'var(--color-bg-tertiary)' : 'transparent',
+                                    boxShadow: iconUrl === customIcon.url ? 'inset 0 0 0 1px var(--color-primary)' : 'none'
+                                  }}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  title={customIcon.name}
+                                >
+                                  <img 
+                                    src={customIcon.url} 
+                                    alt={customIcon.name}
+                                    className="w-8 h-8 mx-auto object-contain"
+                                  />
+                                  <p 
+                                    className="text-xs mt-1 truncate text-center"
+                                    style={{ color: 'var(--color-text-muted)' }}
+                                  >
+                                    {customIcon.name}
+                                  </p>
+                                </motion.button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* URL 输入 */}
+                      {iconTab === 'url' && (
+                        <div className="space-y-3">
+                          <input
+                            type="url"
+                            value={iconUrlInput}
+                            onChange={(e) => setIconUrlInput(e.target.value)}
+                            placeholder="https://example.com/icon.png"
+                            className={cn(
+                              'w-full px-3 py-2 rounded-lg',
+                              'border outline-none transition-colors text-sm'
+                            )}
+                            style={{ 
+                              color: 'var(--color-text-primary)',
+                              background: 'var(--color-bg-tertiary)',
+                              borderColor: 'var(--color-glass-border)',
+                            }}
+                          />
+                          <div className="flex gap-2">
+                            {iconUrlInput && (
+                              <div 
+                                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ background: 'var(--color-bg-tertiary)' }}
+                              >
+                                <img 
+                                  src={iconUrlInput} 
+                                  alt="Preview"
+                                  className="w-8 h-8 object-contain"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none'
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <motion.button
+                              type="button"
+                              onClick={() => {
+                                if (iconUrlInput) {
+                                  setIconUrl(iconUrlInput)
+                                  setIcon('')
+                                  setShowIconPicker(false)
+                                }
+                              }}
+                              disabled={!iconUrlInput}
+                              className={cn(
+                                'flex-1 px-3 py-2 rounded-lg text-sm',
+                                'disabled:opacity-50 disabled:cursor-not-allowed'
+                              )}
+                              style={{ 
+                                background: 'var(--color-primary)',
+                                color: 'white',
+                              }}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              {t('bookmark.modal.use_this_image')}
+                            </motion.button>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* 分类选择 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label 
+                    className="block text-sm"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {t('bookmark.modal.category')}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategory(true)}
+                    className="text-xs flex items-center gap-1 hover:opacity-80 transition-opacity"
+                    style={{ color: 'var(--gradient-1)' }}
+                  >
+                    <FolderPlus className="w-3 h-3" />
+                    {t('category.add')}
+                  </button>
+                </div>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className={cn(
+                    'w-full px-4 py-3 rounded-xl',
+                    'border outline-none transition-colors',
+                    'cursor-pointer'
+                  )}
+                  style={{ 
+                    color: 'var(--color-text-primary)',
+                    background: 'var(--color-bg-secondary)',
+                    borderColor: 'var(--color-glass-border)',
+                  }}
+                >
+                  <option value="" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}>{t('bookmark.modal.uncategorized')}</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id} style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                
+                {/* 新增分类弹窗 */}
+                <AnimatePresence>
+                  {showAddCategory && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="mt-3 p-4 rounded-xl border"
+                      style={{
+                        background: 'var(--color-bg-tertiary)',
+                        borderColor: 'var(--color-glass-border)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {t('admin.category.add')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddCategory(false)
+                            setNewCategoryName('')
+                            setAddCategoryError('')
+                          }}
+                          className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+                        >
+                          <X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                        </button>
+                      </div>
+                      
+                      {/* 分类名称输入 */}
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder={t('admin.category.name_placeholder')}
+                        className={cn(
+                          'w-full px-3 py-2 rounded-lg text-sm',
+                          'border outline-none transition-colors',
+                          'focus:border-[var(--gradient-1)]'
+                        )}
+                        style={{
+                          color: 'var(--color-text-primary)',
+                          background: 'var(--color-bg-secondary)',
+                          borderColor: 'var(--color-glass-border)',
+                        }}
+                      />
+                      
+                      {/* 颜色选择 */}
+                      <div className="mt-3">
+                        <span className="text-xs mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                          {t('admin.category.select_color')}
+                        </span>
+                        <div className="flex gap-2 flex-wrap">
+                          {categoryColors.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setSelectedColor(color)}
+                              className={cn(
+                                'w-6 h-6 rounded-full transition-all',
+                                selectedColor === color ? 'ring-2 ring-offset-2 ring-offset-[var(--color-bg-tertiary)]' : ''
+                              )}
+                              style={{ 
+                                background: color,
+                                ['--tw-ring-color' as any]: color,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* 错误提示 */}
+                      {addCategoryError && (
+                        <p className="mt-2 text-xs text-red-400">{addCategoryError}</p>
+                      )}
+                      
+                      {/* 确认按钮 */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!newCategoryName.trim()) {
+                            setAddCategoryError(t('admin.category.name_placeholder'))
+                            return
+                          }
+                          
+                          setIsAddingCategory(true)
+                          setAddCategoryError('')
+                          
+                          try {
+                            const newCategory = await categoryApi.create({
+                              name: newCategoryName.trim(),
+                              color: selectedColor,
+                            })
+                            
+                            // 自动选中新创建的分类
+                            setCategory(newCategory.id)
+                            
+                            // 通知父组件刷新分类列表
+                            if (onCategoryAdded) {
+                              onCategoryAdded(newCategory)
+                            }
+                            
+                            // 重置状态
+                            setShowAddCategory(false)
+                            setNewCategoryName('')
+                            setSelectedColor(categoryColors[0])
+                          } catch (err: any) {
+                            setAddCategoryError(err.message || '创建分类失败')
+                          } finally {
+                            setIsAddingCategory(false)
+                          }
+                        }}
+                        disabled={isAddingCategory}
+                        className={cn(
+                          'mt-3 w-full py-2 rounded-lg text-sm font-medium',
+                          'flex items-center justify-center gap-2',
+                          'transition-all',
+                          isAddingCategory ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+                        )}
+                        style={{
+                          background: 'var(--color-primary)',
+                          color: 'white',
+                        }}
+                      >
+                        {isAddingCategory ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        {t('admin.category.create')}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* 稍后阅读开关 */}
+              <div className="flex items-center justify-between">
+                <label 
+                  className="text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {t('bookmark.mark_read_later')}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsReadLater(!isReadLater)}
+                  className={cn(
+                    'relative w-11 h-6 rounded-full transition-colors',
+                    !isReadLater && 'bg-black/10 dark:bg-white/10'
+                  )}
+                  style={isReadLater ? { background: 'linear-gradient(to right, var(--gradient-1), var(--gradient-2))' } : undefined}
+                >
+                  <motion.div
+                    className={cn(
+                      "absolute top-1 w-4 h-4 rounded-full shadow",
+                      isReadLater
+                        ? "bg-white"
+                        : "bg-white dark:bg-white border border-black/10 dark:border-transparent"
+                    )}
+                    animate={{ left: isReadLater ? 'calc(100% - 20px)' : '4px' }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                </button>
+              </div>
+
+              {/* 可见性选择 */}
+              <div className="flex items-center justify-between">
+                <label 
+                  className="text-sm flex items-center gap-1.5"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {visibility === 'private' ? (
+                    <Lock className="w-3.5 h-3.5" style={{ color: 'rgb(251, 191, 36)' }} />
+                  ) : (
+                    <Globe className="w-3.5 h-3.5" style={{ color: 'rgb(34, 211, 238)' }} />
+                  )}
+                  {t('bookmark.modal.visibility')}
+                </label>
+                <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'var(--color-bg-tertiary, rgba(255,255,255,0.05))' }}>
+                  <button
+                    type="button"
+                    onClick={() => setVisibility('public')}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1',
+                      visibility === 'public'
+                        ? 'shadow-sm'
+                        : 'opacity-50 hover:opacity-80'
+                    )}
+                    style={{
+                      background: visibility === 'public' ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                      color: visibility === 'public' ? 'rgb(34, 211, 238)' : 'var(--text-muted)',
+                      border: visibility === 'public' ? '1px solid rgba(6, 182, 212, 0.3)' : '1px solid transparent',
+                    }}
+                  >
+                    <Globe className="w-3 h-3" />
+                    {t('bookmark.modal.visibility_public')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibility('private')}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1',
+                      visibility === 'private'
+                        ? 'shadow-sm'
+                        : 'opacity-50 hover:opacity-80'
+                    )}
+                    style={{
+                      background: visibility === 'private' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                      color: visibility === 'private' ? 'rgb(251, 191, 36)' : 'var(--text-muted)',
+                      border: visibility === 'private' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+                    }}
+                  >
+                    <Lock className="w-3 h-3" />
+                    {t('bookmark.modal.visibility_private')}
+                  </button>
+                </div>
+              </div>
+
+              {/* 预览卡片 */}
+              <AnimatePresence>
+                {(hasAnalyzed || editBookmark) && (title || favicon || icon || iconUrl) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    className="p-4 rounded-xl glass border border-white/10 relative overflow-hidden"
+                  >
+                    {/* 新卡片光环效果 */}
+                    {!editBookmark && (
+                      <motion.div
+                        initial={{ opacity: 0.6 }}
+                        animate={{ opacity: 0 }}
+                        transition={{ duration: 1.5 }}
+                        className="absolute inset-0 bg-gradient-to-r from-[var(--gradient-1)]/20 to-[var(--gradient-2)]/20"
+                      />
+                    )}
+                    <div className="flex items-center gap-4 relative">
+                      {/* 图标容器 - 统一底座 */}
+                      <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 p-1.5">
+                        {iconUrl ? (
+                          <img 
+                            src={iconUrl} 
+                            alt="" 
+                            className="w-full h-full object-contain rounded-lg"
+                          />
+                        ) : icon ? (
+                          <IconRenderer icon={icon} className="w-7 h-7" style={{ color: 'var(--gradient-1)' }} />
+                        ) : favicon ? (
+                          <img 
+                            src={favicon} 
+                            alt="" 
+                            className="w-full h-full object-contain rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <span 
+                            className="text-xl font-semibold"
+                            style={{ color: 'var(--text-secondary)' }}
+                          >
+                            {title?.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div 
+                          className="font-medium truncate"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {title || 'Untitled'}
+                        </div>
+                        {description && (
+                          <div 
+                            className="text-sm mt-0.5 line-clamp-2"
+                            style={{ color: 'var(--text-muted)' }}
+                          >
+                            {description}
+                          </div>
+                        )}
+                      </div>
+                      {isReadLater && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-r from-orange-400 to-pink-500" />
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* 分析中骨架屏预览 */}
+              {isAnalyzing && (
+                <div className="p-4 rounded-xl glass border border-white/10">
+                  <div className="flex items-center gap-4">
+                    <FieldSkeleton className="w-12 h-12 rounded-xl flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <FieldSkeleton className="h-5 w-3/4" />
+                      <FieldSkeleton className="h-4 w-full" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 错误提示 */}
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 text-red-400 text-sm"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </motion.div>
+              )}
+            </div>
+
+            {/* 底部按钮 */}
+            <div className="shrink-0 flex justify-end gap-3 px-6 py-4 border-t border-white/10">
+              <button
+                onClick={onClose}
+                className={cn(
+                  'px-5 py-2.5 rounded-xl transition-colors'
+                )}
+                style={{ 
+                  color: 'var(--color-text-secondary)',
+                  background: 'var(--color-bg-tertiary)',
+                }}
+              >
+                {t('bookmark.cancel')}
+              </button>
+              <motion.button
+                onClick={handleSubmit}
+                disabled={!url || !title || isAnalyzing}
+                className={cn(
+                  'px-5 py-2.5 rounded-xl',
+                  'text-white font-medium',
+                  'hover:opacity-90 transition-opacity',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  'flex items-center gap-2'
+                )}
+                style={{
+                  background: 'var(--color-primary)',
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : editBookmark ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                {editBookmark ? t('bookmark.save') : t('common.add')}
+              </motion.button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}

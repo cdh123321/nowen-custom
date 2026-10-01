@@ -1,0 +1,485 @@
+import { useTranslation } from 'react-i18next'
+import { motion } from 'framer-motion'
+import { 
+  Gauge,
+  Cpu,
+  Activity,
+  Network,
+  ListTree,
+  CircleDot,
+  BarChart3,
+  Eye,
+  EyeOff,
+  MonitorSmartphone,
+  Monitor,
+  Sparkles,
+  Users,
+  Shield
+} from 'lucide-react'
+import { cn } from '../../lib/utils'
+import { WidgetVisibility } from '../../lib/api'
+
+// 仅包含布尔开关的组件 ID 类型
+type WidgetToggleId = 'systemMonitor' | 'hardwareIdentity' | 'vitalSigns' | 'networkTelemetry' | 'processMatrix' | 'dockMiniMonitor' | 'mobileTicker' | 'aiAssistant'
+
+// 访问模式 key 类型
+type WidgetAccessId = 'systemMonitorAccess' | 'hardwareIdentityAccess' | 'vitalSignsAccess' | 'networkTelemetryAccess' | 'processMatrixAccess' | 'dockMiniMonitorAccess' | 'mobileTickerAccess' | 'aiAssistantAccess'
+
+interface WidgetConfig {
+  id: WidgetToggleId
+  accessId: WidgetAccessId
+  labelKey: string
+  descKey: string
+  icon: React.ComponentType<{ className?: string }>
+  gradient: string
+  category: 'dashboard' | 'dock'
+}
+
+const widgetConfigs: WidgetConfig[] = [
+  {
+    id: 'systemMonitor',
+    accessId: 'systemMonitorAccess',
+    labelKey: 'admin.settings.widget.system_monitor',
+    descKey: 'admin.settings.widget.system_monitor_desc',
+    icon: Gauge,
+    gradient: 'from-cyan-500 to-blue-600',
+    category: 'dashboard',
+  },
+  {
+    id: 'hardwareIdentity',
+    accessId: 'hardwareIdentityAccess',
+    labelKey: 'admin.settings.widget.hardware_identity',
+    descKey: 'admin.settings.widget.hardware_identity_desc',
+    icon: Cpu,
+    gradient: 'from-indigo-500 to-purple-600',
+    category: 'dashboard',
+  },
+  {
+    id: 'vitalSigns',
+    accessId: 'vitalSignsAccess',
+    labelKey: 'admin.settings.widget.vital_signs',
+    descKey: 'admin.settings.widget.vital_signs_desc',
+    icon: Activity,
+    gradient: 'from-emerald-500 to-green-600',
+    category: 'dashboard',
+  },
+  {
+    id: 'networkTelemetry',
+    accessId: 'networkTelemetryAccess',
+    labelKey: 'admin.settings.widget.network_telemetry',
+    descKey: 'admin.settings.widget.network_telemetry_desc',
+    icon: Network,
+    gradient: 'from-violet-500 to-purple-600',
+    category: 'dashboard',
+  },
+  {
+    id: 'processMatrix',
+    accessId: 'processMatrixAccess',
+    labelKey: 'admin.settings.widget.process_matrix',
+    descKey: 'admin.settings.widget.process_matrix_desc',
+    icon: ListTree,
+    gradient: 'from-amber-500 to-orange-600',
+    category: 'dashboard',
+  },
+  {
+    id: 'dockMiniMonitor',
+    accessId: 'dockMiniMonitorAccess',
+    labelKey: 'admin.settings.widget.dock_mini',
+    descKey: 'admin.settings.widget.dock_mini_desc',
+    icon: CircleDot,
+    gradient: 'from-rose-500 to-pink-600',
+    category: 'dock',
+  },
+  {
+    id: 'mobileTicker',
+    accessId: 'mobileTickerAccess',
+    labelKey: 'admin.settings.widget.mobile_ticker',
+    descKey: 'admin.settings.widget.mobile_ticker_desc',
+    icon: BarChart3,
+    gradient: 'from-teal-500 to-cyan-600',
+    category: 'dock',
+  },
+  {
+    id: 'aiAssistant',
+    accessId: 'aiAssistantAccess',
+    labelKey: 'admin.settings.widget.ai_assistant',
+    descKey: 'admin.settings.widget.ai_assistant_desc',
+    icon: Sparkles,
+    gradient: 'from-violet-500 to-indigo-600',
+    category: 'dock',
+  },
+]
+
+interface WidgetSettingsCardProps {
+  visibility: WidgetVisibility
+  onChange: (visibility: WidgetVisibility) => void
+  onSave: () => Promise<void>
+  isSaving: boolean
+  success: boolean
+  error: string
+}
+
+export function WidgetSettingsCard({
+  visibility,
+  onChange,
+  onSave,
+  isSaving,
+  success,
+  error,
+}: WidgetSettingsCardProps) {
+  const { t } = useTranslation()
+  
+  const toggleWidget = (id: WidgetToggleId) => {
+    onChange({
+      ...visibility,
+      [id]: !visibility[id],
+    })
+  }
+
+  const toggleAccess = (accessId: WidgetAccessId, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const current = visibility[accessId]
+    onChange({
+      ...visibility,
+      [accessId]: current === 'private' ? 'public' : 'private',
+    })
+  }
+
+  const dashboardWidgets = widgetConfigs.filter(w => w.category === 'dashboard')
+  const dockWidgets = widgetConfigs.filter(w => w.category === 'dock')
+
+  // 计算显示数量（只统计布尔开关字段）
+  const visibleCount = widgetConfigs.filter(w => visibility[w.id] !== false).length
+  const totalCount = widgetConfigs.length
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+      className="relative group"
+    >
+      <div 
+        className="relative overflow-hidden rounded-2xl backdrop-blur-xl p-6"
+        style={{
+          background: 'var(--color-glass)',
+          border: '1px solid var(--color-glass-border)',
+        }}
+      >
+        {/* Animated Border Gradient */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-sky-500/20 via-transparent to-violet-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 dark:block hidden" />
+        
+        {/* Header */}
+        <div className="relative flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500/20 to-violet-600/20 border border-sky-500/20 flex items-center justify-center">
+                <Gauge className="w-6 h-6 text-sky-500" />
+              </div>
+              <div className="absolute -inset-2 rounded-xl bg-sky-500/20 blur-xl opacity-50 -z-10 dark:block hidden" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('admin.settings.widget.title')}</h3>
+              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('admin.settings.widget.subtitle')}</p>
+            </div>
+          </div>
+
+          {/* 统计指示 */}
+          <div 
+            className="px-3 py-1.5 rounded-full text-sm font-medium"
+            style={{
+              background: 'var(--color-bg-tertiary)',
+              border: '1px solid var(--color-glass-border)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <span className="text-[var(--color-primary)]">{visibleCount}</span>
+            <span className="mx-1">/</span>
+            <span>{totalCount}</span>
+            <span className="ml-1">{t('admin.settings.widget.enabled_count')}</span>
+          </div>
+        </div>
+
+        {/* Dashboard Widgets Section */}
+        <div className="relative mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Monitor className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('admin.settings.widget.dashboard_widgets')}
+            </span>
+            <div className="flex-1 h-px ml-2" style={{ background: 'var(--color-glass-border)' }} />
+          </div>
+          
+          <div className="grid grid-cols-1 gap-3">
+            {dashboardWidgets.map((widget) => {
+              const Icon = widget.icon
+              const isVisible = visibility[widget.id] !== false
+              const isPrivate = visibility[widget.accessId] === 'private'
+              
+              return (
+                <motion.div
+                  key={widget.id}
+                  className={cn(
+                    'relative flex items-center gap-4 p-4 rounded-xl transition-all duration-300 cursor-pointer',
+                    isVisible ? 'opacity-100' : 'opacity-60'
+                  )}
+                  style={{
+                    background: isVisible 
+                      ? 'var(--color-bg-tertiary)' 
+                      : 'var(--color-bg-secondary)',
+                    border: isVisible 
+                      ? '1px solid var(--color-primary)' 
+                      : '1px solid var(--color-glass-border)',
+                  }}
+                  onClick={() => toggleWidget(widget.id)}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                >
+                  {/* 图标 */}
+                  <div 
+                    className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+                      'bg-gradient-to-br',
+                      widget.gradient,
+                      !isVisible && 'grayscale'
+                    )}
+                  >
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
+                  
+                  {/* 文本 */}
+                  <div className="flex-1 min-w-0">
+                    <div 
+                      className="font-medium"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {t(widget.labelKey)}
+                    </div>
+                    <div 
+                      className="text-xs mt-0.5 truncate"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      {t(widget.descKey)}
+                    </div>
+                  </div>
+
+                  {/* 私人/公共切换按钮 */}
+                  <button
+                    type="button"
+                    onClick={(e) => toggleAccess(widget.accessId, e)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 flex-shrink-0',
+                      isPrivate
+                        ? 'ring-1 ring-amber-500/30'
+                        : 'ring-1 ring-cyan-500/30'
+                    )}
+                    style={{
+                      background: isPrivate
+                        ? 'rgba(245, 158, 11, 0.12)'
+                        : 'rgba(6, 182, 212, 0.12)',
+                      color: isPrivate
+                        ? 'rgb(251, 191, 36)'
+                        : 'rgb(34, 211, 238)',
+                    }}
+                    title={isPrivate ? t('admin.settings.widget.access_private_tip') : t('admin.settings.widget.access_public_tip')}
+                  >
+                    {isPrivate ? <Shield className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                    {isPrivate ? t('admin.settings.widget.access_private_label') : t('admin.settings.widget.access_public_label')}
+                  </button>
+                  
+                  {/* 开关按钮 */}
+                  <div 
+                    className={cn(
+                      'relative w-12 h-6 rounded-full transition-all duration-300 flex-shrink-0',
+                      isVisible
+                        ? 'bg-gradient-to-r from-sky-500 to-violet-500'
+                        : 'bg-gray-600/50'
+                    )}
+                  >
+                    <motion.div
+                      className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-md"
+                      animate={{ left: isVisible ? '1.75rem' : '0.25rem' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  </div>
+                  
+                  {/* 状态图标 */}
+                  <div className="w-5 flex-shrink-0">
+                    {isVisible ? (
+                      <Eye className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <EyeOff className="w-5 h-5" style={{ color: 'var(--color-text-muted)' }} />
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Dock Widgets Section */}
+        <div className="relative mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <MonitorSmartphone className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              {t('admin.settings.widget.dock_widgets')}
+            </span>
+            <div className="flex-1 h-px ml-2" style={{ background: 'var(--color-glass-border)' }} />
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {dockWidgets.map((widget) => {
+              const Icon = widget.icon
+              const isVisible = visibility[widget.id] !== false
+              const isPrivate = visibility[widget.accessId] === 'private'
+              
+              return (
+                <motion.div
+                  key={widget.id}
+                  className={cn(
+                    'relative flex items-center gap-3 p-4 rounded-xl transition-all duration-300 cursor-pointer',
+                    isVisible ? 'opacity-100' : 'opacity-60'
+                  )}
+                  style={{
+                    background: isVisible 
+                      ? 'var(--color-bg-tertiary)' 
+                      : 'var(--color-bg-secondary)',
+                    border: isVisible 
+                      ? '1px solid var(--color-primary)' 
+                      : '1px solid var(--color-glass-border)',
+                  }}
+                  onClick={() => toggleWidget(widget.id)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {/* 图标 */}
+                  <div 
+                    className={cn(
+                      'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0',
+                      'bg-gradient-to-br',
+                      widget.gradient,
+                      !isVisible && 'grayscale'
+                    )}
+                  >
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  {/* 文本 */}
+                  <div className="flex-1 min-w-0">
+                    <div 
+                      className="font-medium text-sm"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {t(widget.labelKey)}
+                    </div>
+                    <div 
+                      className="text-xs mt-0.5 truncate"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      {t(widget.descKey)}
+                    </div>
+                  </div>
+
+                  {/* 私人/公共切换按钮 */}
+                  <button
+                    type="button"
+                    onClick={(e) => toggleAccess(widget.accessId, e)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 flex-shrink-0',
+                      isPrivate
+                        ? 'ring-1 ring-amber-500/30'
+                        : 'ring-1 ring-cyan-500/30'
+                    )}
+                    style={{
+                      background: isPrivate
+                        ? 'rgba(245, 158, 11, 0.12)'
+                        : 'rgba(6, 182, 212, 0.12)',
+                      color: isPrivate
+                        ? 'rgb(251, 191, 36)'
+                        : 'rgb(34, 211, 238)',
+                    }}
+                    title={isPrivate ? t('admin.settings.widget.access_private_tip') : t('admin.settings.widget.access_public_tip')}
+                  >
+                    {isPrivate ? <Shield className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                    {isPrivate ? t('admin.settings.widget.access_private_label') : t('admin.settings.widget.access_public_label')}
+                  </button>
+                  
+                  {/* 状态图标 */}
+                  <div className="flex-shrink-0">
+                    {isVisible ? (
+                      <Eye className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <EyeOff className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 提示信息 */}
+        <div 
+          className="relative p-3 rounded-xl mb-6"
+          style={{
+            background: 'var(--color-bg-tertiary)',
+            border: '1px solid var(--color-glass-border)',
+          }}
+        >
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {t('admin.settings.widget.hint')}
+          </p>
+        </div>
+
+        {/* 状态消息 */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-sm text-green-400"
+          >
+            {t('admin.settings.widget.saved')}
+          </motion.div>
+        )}
+
+        {/* 保存按钮 */}
+        <motion.button
+          onClick={onSave}
+          disabled={isSaving}
+          whileHover={{ scale: isSaving ? 1 : 1.02 }}
+          whileTap={{ scale: isSaving ? 1 : 0.98 }}
+          className={cn(
+            'relative w-full py-3 rounded-xl font-medium overflow-hidden',
+            'bg-gradient-to-r from-sky-600 to-violet-600',
+            'text-white shadow-lg shadow-sky-500/20',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            'transition-all duration-300'
+          )}
+        >
+          <span className="relative z-10">
+            {isSaving ? (
+              <span className="flex items-center justify-center gap-2">
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                />
+                {t('admin.settings.widget.saving')}
+              </span>
+            ) : t('admin.settings.widget.save')}
+          </span>
+        </motion.button>
+      </div>
+    </motion.div>
+  )
+}

@@ -1,0 +1,360 @@
+/**
+ * Mobile Floating Dock - 移动端底部导航栏
+ * 固定在屏幕最底部，不支持拖拽
+ * 花瓣式展开菜单，支持日间/夜间模式
+ * 支持左侧插入自定义内容（如状态栏）
+ */
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "../../lib/utils";
+
+interface DockItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
+  onClick?: () => void;
+  isActive?: boolean;
+  /** 子菜单：点击后不执行 onClick，而是进入二级菜单 */
+  subItems?: DockItem[];
+}
+
+interface MobileFloatingDockProps {
+  items: DockItem[];
+  className?: string;
+  /** 左侧插槽，用于放置状态栏等 */
+  leftSlot?: React.ReactNode;
+}
+
+// 液态动画配置
+const LIQUID_SPRING = {
+  expand: { type: "spring" as const, stiffness: 300, damping: 25 },
+  item: { type: "spring" as const, stiffness: 400, damping: 28 },
+  backdrop: { duration: 0.3 },
+};
+
+export function MobileFloatingDock({
+  items,
+  className,
+  leftSlot,
+}: MobileFloatingDockProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  // 当前展示的子菜单项，null 表示在主菜单
+  const [activeSubmenu, setActiveSubmenu] = useState<DockItem | null>(null);
+  const orbBtnRef = useRef<HTMLButtonElement>(null);
+  const [orbRect, setOrbRect] = useState<{ right: number; bottom: number }>({
+    right: 16,
+    bottom: 60,
+  });
+
+  // 展开时测量能量球位置，菜单将定位到该位置上方
+  useEffect(() => {
+    if (isExpanded && orbBtnRef.current) {
+      const rect = orbBtnRef.current.getBoundingClientRect();
+      setOrbRect({
+        right: window.innerWidth - rect.right,
+        bottom: window.innerHeight - rect.top + 8,
+      });
+    }
+    // 收起菜单时重置子菜单状态
+    if (!isExpanded) {
+      setActiveSubmenu(null);
+    }
+  }, [isExpanded]);
+
+  const closeDock = () => {
+    setIsExpanded(false);
+    setActiveSubmenu(null);
+  };
+
+  const handleItemClick = (item: DockItem) => {
+    if ("vibrate" in navigator) {
+      navigator.vibrate(10);
+    }
+    // 有子菜单：进入二级菜单，不执行 onClick、不收起
+    if (item.subItems && item.subItems.length > 0) {
+      setActiveSubmenu(item);
+      return;
+    }
+    item.onClick?.();
+    closeDock();
+  };
+
+  const toggleDock = () => {
+    if ("vibrate" in navigator) {
+      navigator.vibrate(5);
+    }
+    if (isExpanded) {
+      closeDock();
+    } else {
+      setIsExpanded(true);
+    }
+  };
+
+  // 当前要渲染的列表：子菜单状态下用 subItems，否则用主 items
+  const displayItems = activeSubmenu?.subItems ?? items;
+  const hasLeftSlot = Boolean(leftSlot);
+
+  return (
+    <>
+      {/* 背景遮罩 - 展开时出现 */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={LIQUID_SPRING.backdrop}
+            className="fixed inset-0 z-[70] bg-black/40 dark:bg-black/50 backdrop-blur-sm"
+            onClick={closeDock}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 展开的菜单项 - 独立 fixed 定位，z-index 高于遮罩 */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed z-[80] flex flex-col-reverse gap-3 items-end"
+            style={{
+              right: orbRect.right,
+              bottom: orbRect.bottom,
+            }}
+          >
+            {/* 子菜单返回按钮（位于底部，但 flex-col-reverse 后在最上方） */}
+            {activeSubmenu && (
+              <motion.button
+                key="submenu-back"
+                initial={{ opacity: 0, scale: 0.5, x: 20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.5, x: 20 }}
+                transition={LIQUID_SPRING.item}
+                onClick={() => {
+                  if ("vibrate" in navigator) navigator.vibrate(5);
+                  setActiveSubmenu(null);
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-xl",
+                  "bg-white/95 border-slate-200/80",
+                  "dark:bg-black/80 dark:border-white/10",
+                  "backdrop-blur-xl border",
+                  "active:scale-95 transition-transform"
+                )}
+                style={{ boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)" }}
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-500 dark:text-white/60" />
+                <span className="text-xs font-medium text-slate-600 dark:text-white/70">
+                  {activeSubmenu.label}
+                </span>
+              </motion.button>
+            )}
+
+            {displayItems.map((item, index) => (
+              <motion.button
+                key={`${activeSubmenu?.id ?? "main"}-${item.id}`}
+                initial={{ opacity: 0, scale: 0.5, x: 20 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  x: 0,
+                  transition: {
+                    ...LIQUID_SPRING.item,
+                    delay: index * 0.04,
+                  },
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.5,
+                  x: 20,
+                  transition: {
+                    duration: 0.15,
+                    delay: (displayItems.length - index - 1) * 0.02,
+                  },
+                }}
+                onClick={() => handleItemClick(item)}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-2xl",
+                  "bg-white/95 border-slate-200/80",
+                  "dark:bg-black/80 dark:border-white/10",
+                  "backdrop-blur-xl border",
+                  item.isActive &&
+                    "border-blue-400/50 dark:border-cyan-400/30",
+                  "active:scale-95 transition-transform"
+                )}
+                style={{
+                  boxShadow: item.isActive
+                    ? "0 0 20px rgba(59, 130, 246, 0.3)"
+                    : "0 4px 20px rgba(0, 0, 0, 0.15)",
+                }}
+              >
+                {/* 标签 */}
+                <span
+                  className={cn(
+                    "text-sm font-medium whitespace-nowrap",
+                    item.isActive
+                      ? "text-slate-800 dark:text-white/95"
+                      : "text-slate-600 dark:text-white/70"
+                  )}
+                >
+                  {item.label}
+                </span>
+
+                {/* 图标 */}
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    item.isActive
+                      ? "bg-blue-500/15 dark:bg-cyan-400/15"
+                      : "bg-slate-100 dark:bg-white/5"
+                  )}
+                >
+                  <item.icon
+                    className={cn(
+                      "w-5 h-5",
+                      item.isActive
+                        ? "text-blue-500 dark:text-cyan-400"
+                        : "text-slate-500 dark:text-white/60"
+                    )}
+                  />
+                </div>
+
+                {/* 有子菜单时显示右箭头（在子菜单状态下不显示） */}
+                {item.subItems && item.subItems.length > 0 && !activeSubmenu && (
+                  <ChevronRight className="w-4 h-4 text-slate-400 dark:text-white/40" />
+                )}
+
+                {/* 选中态能量指示条 */}
+                {item.isActive && (
+                  <motion.div
+                    layoutId="mobileDockIndicator"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-gradient-to-b from-blue-400 to-purple-500 dark:from-cyan-400 dark:to-indigo-500"
+                    style={{
+                      boxShadow: "0 0 10px rgba(59, 130, 246, 0.5)",
+                    }}
+                  />
+                )}
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 有状态内容时展示完整底栏；无状态内容时只保留右下角菜单按钮 */}
+      <div
+        className={cn(
+          "fixed z-[75] flex items-center",
+          hasLeftSlot &&
+            "bottom-0 left-0 right-0 px-3 py-2 bg-white/90 dark:bg-black/80 backdrop-blur-xl border-t border-slate-200/60 dark:border-white/10 safe-area-bottom",
+          !hasLeftSlot && "right-3",
+          className
+        )}
+        style={
+          hasLeftSlot
+            ? { paddingBottom: "max(8px, env(safe-area-inset-bottom))" }
+            : { bottom: "max(8px, env(safe-area-inset-bottom))" }
+        }
+      >
+        {/* 左侧：状态栏插槽 */}
+        {hasLeftSlot && (
+          <div className="flex-1 min-w-0 mr-3 overflow-hidden">{leftSlot}</div>
+        )}
+
+        {/* 右侧：能量球按钮 */}
+        <div className="relative flex-shrink-0">
+          <motion.button
+            ref={orbBtnRef}
+            onClick={toggleDock}
+            animate={{
+              rotate: isExpanded ? 180 : 0,
+              scale: isExpanded ? 0.9 : 1,
+            }}
+            transition={LIQUID_SPRING.expand}
+            className={cn(
+              "relative w-11 h-11 rounded-full",
+              "flex items-center justify-center",
+              "bg-white/95 border-slate-200/80",
+              "shadow-lg shadow-slate-200/50",
+              "dark:bg-black/80 dark:border-white/10",
+              "dark:shadow-lg dark:shadow-black/40",
+              "backdrop-blur-xl border",
+              "active:scale-90 transition-transform"
+            )}
+            style={{
+              boxShadow: isExpanded
+                ? "0 0 30px rgba(59, 130, 246, 0.4)"
+                : undefined,
+            }}
+            aria-label={isExpanded ? "关闭导航" : "打开导航"}
+            aria-expanded={isExpanded}
+          >
+            {/* 能量环 - 呼吸动画 */}
+            <motion.div
+              className="absolute inset-0 rounded-full"
+              animate={{
+                boxShadow: [
+                  "0 0 0 0 rgba(59, 130, 246, 0)",
+                  "0 0 0 6px rgba(59, 130, 246, 0.1)",
+                  "0 0 0 0 rgba(59, 130, 246, 0)",
+                ],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+
+            {/* 图标切换 */}
+            <AnimatePresence mode="wait">
+              {isExpanded ? (
+                <motion.div
+                  key="close"
+                  initial={{ opacity: 0, rotate: -90 }}
+                  animate={{ opacity: 1, rotate: 0 }}
+                  exit={{ opacity: 0, rotate: 90 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <X className="w-5 h-5 text-blue-500 dark:text-cyan-400" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="menu"
+                  initial={{ opacity: 0, rotate: 90 }}
+                  animate={{ opacity: 1, rotate: 0 }}
+                  exit={{ opacity: 0, rotate: -90 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <Menu className="w-5 h-5 text-slate-600 dark:text-white/80" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* 活跃项指示点 */}
+            {!isExpanded && items.some((item) => item.isActive) && (
+              <motion.div
+                className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 dark:from-cyan-400 dark:to-indigo-500"
+                style={{
+                  boxShadow: "0 0 8px rgba(59, 130, 246, 0.6)",
+                }}
+                animate={{
+                  scale: [1, 1.2, 1],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            )}
+          </motion.button>
+        </div>
+      </div>
+    </>
+  );
+}

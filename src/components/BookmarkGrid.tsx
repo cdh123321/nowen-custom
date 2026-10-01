@@ -1,0 +1,372 @@
+import { useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable'
+import { useState } from 'react'
+import { SortableBookmarkCard } from './SortableBookmarkCard'
+import { BookmarkCard, BookmarkCardSkeleton } from './BookmarkCard'
+import { Bookmark, Category } from '../types/bookmark'
+import { Folder, Clock } from 'lucide-react'
+import { cn } from '../lib/utils'
+import { IconRenderer } from './IconRenderer'
+
+interface BookmarkGridProps {
+  bookmarks: Bookmark[]
+  categories: Category[]
+  isLoading?: boolean
+  newlyAddedId?: string | null
+  onEdit?: (bookmark: Bookmark) => void
+  onDelete?: (id: string) => void
+  onTogglePin?: (id: string) => void
+  onToggleReadLater?: (id: string) => void
+  onMarkAsRead?: (id: string) => void
+  onReorder?: (bookmarks: Bookmark[]) => void
+}
+
+export function BookmarkGrid({
+  bookmarks,
+  categories,
+  isLoading = false,
+  newlyAddedId,
+  onEdit,
+  onDelete,
+  onTogglePin,
+  onToggleReadLater,
+  onMarkAsRead,
+  onReorder,
+}: BookmarkGridProps) {
+  const [activeId, setActiveId] = useState<string | null>(null)
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // 按分类分组书签
+  const groupedBookmarks = useMemo(() => {
+    const groups: Record<string, Bookmark[]> = {}
+    
+    categories.forEach(cat => {
+      groups[cat.id] = []
+    })
+    groups['uncategorized'] = []
+
+    bookmarks.forEach(bookmark => {
+      const catId = bookmark.category || 'uncategorized'
+      if (!groups[catId]) groups[catId] = []
+      groups[catId].push(bookmark)
+    })
+
+    return groups
+  }, [bookmarks, categories])
+
+  // 稍后阅读书签
+  const readLaterBookmarks = useMemo(() => {
+    return bookmarks.filter(b => b.isReadLater && !b.isRead)
+  }, [bookmarks])
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+    
+    // VIBE CODING: 触觉反馈 - 让用户"感觉到"卡片被抓起
+    // 如果设备支持震动（如手机），给手指一个微小的 "Click" 感
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(10) // 10ms 的微震，短促而有力
+    }
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (over && active.id !== over.id) {
+      const oldIndex = bookmarks.findIndex(b => b.id === active.id)
+      const newIndex = bookmarks.findIndex(b => b.id === over.id)
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(bookmarks, oldIndex, newIndex)
+        onReorder?.(newOrder)
+        
+        // VIBE CODING: 落地触觉反馈 - 让用户"感觉到"卡片被放下
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([5, 30, 5]) // 双击节奏，表示"确认放置"
+        }
+      }
+    }
+  }
+
+  const activeBookmark = activeId 
+    ? bookmarks.find(b => b.id === activeId) 
+    : null
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <BookmarkCardSkeleton key={i} />
+        ))}
+      </div>
+    )
+  }
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      },
+    },
+  }
+
+  // VIBE CODING: 物理弹簧动画参数 - 让卡片有"重量感"
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: {
+        // Vibe Tuning: 高刚度、适当阻尼的弹簧 - 响应快但不抖动
+        type: 'spring',
+        stiffness: 400, // 更硬，响应更快
+        damping: 30,    // 阻尼适中，避免过度抖动
+        mass: 1         // 标准质量
+      }
+    },
+  }
+
+  const renderBookmarkCard = (bookmark: Bookmark) => (
+    <SortableBookmarkCard
+      key={bookmark.id}
+      bookmark={bookmark}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      onTogglePin={onTogglePin}
+      onToggleReadLater={onToggleReadLater}
+      onMarkAsRead={onMarkAsRead}
+      isNew={bookmark.id === newlyAddedId}
+    />
+  )
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-10">
+        {/* 稍后阅读区域 */}
+        {readLaterBookmarks.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <motion.div 
+              className="flex items-center gap-3 mb-5"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2, duration: 0.4 }}
+            >
+              <motion.div 
+                className="p-2 rounded-lg glass"
+                style={{ color: '#f97316' }}
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ type: 'spring', stiffness: 400 }}
+              >
+                <Clock className="w-4 h-4" />
+              </motion.div>
+              <h2 
+                className="text-lg font-medium"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                稍后阅读
+              </h2>
+              <span 
+                className="text-sm px-2 py-0.5 rounded-full glass"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {readLaterBookmarks.length}
+              </span>
+            </motion.div>
+
+            <SortableContext
+              items={readLaterBookmarks.map(b => b.id)}
+              strategy={rectSortingStrategy}
+            >
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+              >
+                <AnimatePresence mode="popLayout">
+                  {readLaterBookmarks.map(renderBookmarkCard)}
+                </AnimatePresence>
+              </motion.div>
+            </SortableContext>
+          </motion.section>
+        )}
+
+        {/* 分类区域 */}
+        {categories.map(category => {
+          const categoryBookmarks = (groupedBookmarks[category.id] || [])
+            .filter(b => !b.isReadLater || b.isRead) // 排除未读的稍后阅读
+          if (categoryBookmarks.length === 0) return null
+
+          return (
+            <motion.section
+              key={category.id}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            >
+              {/* 分类标题 */}
+              <motion.div 
+                className="flex items-center gap-3 mb-5"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+              >
+                <motion.div 
+                  className={cn(
+                    'p-2 rounded-lg glass'
+                  )}
+                  style={{ color: category.color }}
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: 'spring', stiffness: 400 }}
+                >
+                  {(() => {
+                    return <IconRenderer icon={category.icon} className="w-4 h-4" />
+                  })()}
+                </motion.div>
+                <h2 
+                  className="text-lg font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {category.name}
+                </h2>
+                <span 
+                  className="text-sm px-2 py-0.5 rounded-full glass"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  {categoryBookmarks.length}
+                </span>
+              </motion.div>
+
+              {/* 书签网格 */}
+              <SortableContext
+                items={categoryBookmarks.map(b => b.id)}
+                strategy={rectSortingStrategy}
+              >
+                <motion.div
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {categoryBookmarks.map(renderBookmarkCard)}
+                  </AnimatePresence>
+                </motion.div>
+              </SortableContext>
+            </motion.section>
+          )
+        })}
+
+        {/* 未分类书签 */}
+        {groupedBookmarks['uncategorized']?.filter(b => !b.isReadLater || b.isRead).length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <motion.div 
+              className="flex items-center gap-3 mb-5"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2, duration: 0.4 }}
+            >
+              <motion.div 
+                className="p-2 rounded-lg glass" 
+                style={{ color: 'var(--text-muted)' }}
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ type: 'spring', stiffness: 400 }}
+              >
+                <Folder className="w-4 h-4" />
+              </motion.div>
+              <h2 className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
+                未分类
+              </h2>
+              <span 
+                className="text-sm px-2 py-0.5 rounded-full glass"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {groupedBookmarks['uncategorized'].filter(b => !b.isReadLater || b.isRead).length}
+              </span>
+            </motion.div>
+
+            <SortableContext
+              items={groupedBookmarks['uncategorized'].filter(b => !b.isReadLater || b.isRead).map(b => b.id)}
+              strategy={rectSortingStrategy}
+            >
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+              >
+                <AnimatePresence mode="popLayout">
+                  {groupedBookmarks['uncategorized']
+                    .filter(b => !b.isReadLater || b.isRead)
+                    .map(renderBookmarkCard)}
+                </AnimatePresence>
+              </motion.div>
+            </SortableContext>
+          </motion.section>
+        )}
+      </div>
+
+      {/* 拖拽覆盖层 */}
+      <DragOverlay>
+        {activeBookmark && (
+          <BookmarkCard
+            bookmark={activeBookmark}
+            isDragging
+          />
+        )}
+      </DragOverlay>
+    </DndContext>
+  )
+}
