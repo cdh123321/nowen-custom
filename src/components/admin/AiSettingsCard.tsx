@@ -361,8 +361,8 @@ export function AiSettingsCard({ onSave, enableAutoAi = true, onAutoAiChange }: 
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-4 overflow-hidden"
               >
-                {/* API Key */}
-                {(currentProvider?.needsApiKey || provider !== 'custom') && (
+                {/* API Key（所有供应商均显示；Custom/Ollama 本地模型可不填） */}
+                {(
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                       API Key {provider === 'custom' && <span style={{ color: 'var(--color-text-muted)' }}>({t('admin.settings.ai.optional')})</span>}
