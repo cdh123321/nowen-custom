@@ -1662,3 +1662,4 @@ function CategorySection({
 }
 
 export default App;
+// build: 2026-10-01 bookmark error display
