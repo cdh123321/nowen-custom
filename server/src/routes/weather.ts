@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import type { Request, Response } from 'express'
+import { pinyin } from 'pinyin-pro'
 
 const router = Router()
 
@@ -24,28 +25,43 @@ function setCache<T>(map: Map<string, { data: T; expires: number }>, key: string
   }
 }
 
-// 城市名 -> 经纬度（Open-Meteo Geocoding）
+// 城市名 -> 经纬度（Open-Meteo Geocoding；中文城市名自动转拼音重试）
 async function geocodeCity(cityName: string): Promise<{ lat: number; lon: number; name: string } | null> {
   const key = cityName.toLowerCase()
   const cached = getCache(geocodeCache, key)
   if (cached !== null) return cached
-  try {
-    const res = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh&format=json`,
-      { signal: AbortSignal.timeout(10000) }
-    )
-    if (!res.ok) return null
-    const data = await res.json()
-    let result: { lat: number; lon: number; name: string } | null = null
-    if (data.results && data.results.length > 0) {
-      const r = data.results[0]
-      result = { lat: r.latitude, lon: r.longitude, name: r.name || cityName }
+
+  const searchOnce = async (name: string): Promise<{ lat: number; lon: number; name: string } | null> => {
+    try {
+      const res = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=zh&format=json`,
+        { signal: AbortSignal.timeout(10000) }
+      )
+      if (!res.ok) return null
+      const data = await res.json()
+      if (data.results && data.results.length > 0) {
+        const r = data.results[0]
+        return { lat: r.latitude, lon: r.longitude, name: r.name || cityName }
+      }
+      return null
+    } catch {
+      return null
     }
-    setCache(geocodeCache, key, result)
-    return result
-  } catch {
-    return null
   }
+
+  // 第一次：用原始输入（兼容英文/拼音）
+  let result = await searchOnce(cityName)
+
+  // 第二次：中文输入转拼音重试（Open-Meteo 地理编码不识别大部分中文）
+  if (!result && /[\u4e00-\u9fff]/.test(cityName)) {
+    const py = pinyin(cityName, { toneType: 'none', type: 'array' }).join('')
+    if (py && py.toLowerCase() !== cityName.toLowerCase()) {
+      result = await searchOnce(py)
+    }
+  }
+
+  setCache(geocodeCache, key, result)
+  return result
 }
 
 // 经纬度 -> 城市名（仅用于展示，失败不影响主流程）
@@ -81,7 +97,7 @@ router.get('/', async (req: Request, res: Response) => {
     if (cityParam) {
       const geo = await geocodeCity(cityParam)
       if (!geo) {
-        res.status(404).json({ error: true, reason: `城市未找到: ${cityParam}` })
+        res.status(404).json({ error: `城市未找到: ${cityParam}` })
         return
       }
       lat = geo.lat
@@ -91,7 +107,7 @@ router.get('/', async (req: Request, res: Response) => {
       lat = latParam
       lon = lonParam
     } else {
-      res.status(400).json({ error: true, reason: '缺少 lat/lon 或 city 参数' })
+      res.status(400).json({ error: '缺少 lat/lon 或 city 参数' })
       return
     }
 
@@ -112,7 +128,7 @@ router.get('/', async (req: Request, res: Response) => {
     const res2 = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) })
     if (!res2.ok) {
       const body = await res2.text().catch(() => '')
-      res.status(502).json({ error: true, reason: `Open-Meteo ${res2.status}: ${body.slice(0, 120)}` })
+      res.status(502).json({ error: `Open-Meteo ${res2.status}: ${body.slice(0, 120)}` })
       return
     }
     const data = await res2.json()
@@ -127,7 +143,7 @@ router.get('/', async (req: Request, res: Response) => {
     res.json(payload)
   } catch (err) {
     const reason = err instanceof Error ? err.message : '天气代理请求失败'
-    res.status(502).json({ error: true, reason })
+    res.status(502).json({ error: reason })
   }
 })
 

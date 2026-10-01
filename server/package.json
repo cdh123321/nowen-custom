@@ -16,6 +16,7 @@
     "express": "^4.21.2",
     "multer": "^2.4.0",
     "node-cron": "^3.0.3",
+    "pinyin-pro": "^3.29.4",
     "sql.js": "^1.11.0",
     "systeminformation": "^5.23.5",
     "webdav": "^5.8.0",
