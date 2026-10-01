@@ -151,7 +151,8 @@
     "theme_dark": "切换夜间模式",
     "admin": "管理",
     "system_online": "系统在线",
-    "system_offline": "系统离线"
+    "system_offline": "系统离线",
+    "files": "文件传输"
   },
   "hero": {
     "greeting": "你好",

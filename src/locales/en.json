@@ -151,7 +151,8 @@
     "theme_dark": "Switch to Dark Mode",
     "admin": "Admin",
     "system_online": "SYSTEM ONLINE",
-    "system_offline": "SYSTEM OFFLINE"
+    "system_offline": "SYSTEM OFFLINE",
+    "files": "File Transfer"
   },
   "hero": {
     "greeting": "Hello",

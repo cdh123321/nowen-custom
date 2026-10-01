@@ -13,6 +13,7 @@ import {
   StretchHorizontal,
   Eye,
   Lightbulb,
+  FolderUp,
 } from "lucide-react";
 import { TFunction } from "i18next";
 
@@ -84,6 +85,12 @@ export const createDockItems = (
     IconComponent: Lightbulb,
   },
   {
+    id: "files",
+    title: t("dock.files"),
+    icon: <FolderUp className="w-5 h-5" />,
+    IconComponent: FolderUp,
+  },
+  {
     id: "add",
     title: t("dock.add"),
     icon: <Plus className="w-5 h-5" />,
@@ -147,6 +154,9 @@ export const filterDockItems = (
       return false;
     }
     if (item.id === "notes" && !isLoggedIn) {
+      return false;
+    }
+    if (item.id === "files" && !isLoggedIn) {
       return false;
     }
     if (item.id === "add" && !isLoggedIn) {

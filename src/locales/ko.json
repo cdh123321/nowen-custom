@@ -149,7 +149,8 @@
     "theme_dark": "다크 모드로 전환",
     "admin": "관리",
     "system_online": "시스템 온라인",
-    "system_offline": "시스템 오프라인"
+    "system_offline": "시스템 오프라인",
+    "files": "파일 전송"
   },
   "hero": {
     "greeting": "안녕하세요",

@@ -149,7 +149,8 @@
     "theme_dark": "ダークモードに切替",
     "admin": "管理",
     "system_online": "システムオンライン",
-    "system_offline": "システムオフライン"
+    "system_offline": "システムオフライン",
+    "files": "ファイル転送"
   },
   "hero": {
     "greeting": "こんにちは",

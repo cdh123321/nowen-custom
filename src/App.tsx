@@ -54,6 +54,7 @@ import {
 } from "./components/home";
 import { CloudDrawerHost } from "./components/home/notes/CloudDrawerHost";
 import { QuickNotesDrawer } from "./components/home/notes/QuickNotesDrawer";
+import { FilesModal } from "./components/FilesModal";
 import { QuickNotesProvider } from "./hooks/QuickNotesContext";
 import { CloudDrawerProvider } from "./hooks/CloudDrawerContext";
 
@@ -117,6 +118,7 @@ function App() {
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isQuickNotesDrawerOpen, setIsQuickNotesDrawerOpen] = useState(false);
+  const [isFilesModalOpen, setIsFilesModalOpen] = useState(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
   const [editingCategory, setEditingCategory] = useState<import("./types/bookmark").Category | null>(null);
@@ -404,6 +406,9 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
         break;
       case "notes":
         if (isLoggedIn) setIsQuickNotesDrawerOpen(true);
+        break;
+      case "files":
+        if (isLoggedIn) setIsFilesModalOpen(true);
         break;
       case "admin":
         navigateToAdmin();
@@ -1196,6 +1201,12 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
         onOpenSettings={() => { setAdminTab('settings'); navigateToAdmin(); }}
       />
     )}
+
+    {/* 文件传输弹窗（被 dock “文件”按钮触发） */}
+    <FilesModal
+      open={isFilesModalOpen}
+      onClose={() => setIsFilesModalOpen(false)}
+    />
     </>
     </CloudDrawerProvider>
     </QuickNotesProvider>
