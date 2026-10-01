@@ -625,9 +625,7 @@
         "hint": "💡 Tip: Hiding widgets can reduce homepage data requests and improve loading speed. Widgets set to 'Private' are only visible to logged-in users. Save to apply changes.",
         "save": "Save Settings",
         "saving": "Saving...",
-        "saved": "Settings saved successfully",
-        "files_entry": "File Transfer Entry",
-        "files_entry_desc": "Show the file transfer shortcut on the home page"
+        "saved": "Settings saved successfully"
       },
       "wallpaper": {
         "title": "Wallpaper Settings",
@@ -1123,18 +1121,7 @@
       "delete_success": "File deleted",
       "delete_error": "Delete failed, please retry",
       "download_error": "Download failed, please retry",
-      "load_error": "Failed to load file list",
-      "tab_file": "Files",
-      "tab_text": "Text",
-      "text_placeholder": "Type or paste text here…",
-      "text_hint": "Saved as a .txt transfer file — open or copy it on any device",
-      "text_clear": "Clear",
-      "save_text": "Save",
-      "text_saved": "Text saved: {{name}}",
-      "text_empty": "Please enter some text first",
-      "copy": "Copy content",
-      "copy_success": "Copied to clipboard",
-      "copy_error": "Copy failed, please retry"
+      "load_error": "Failed to load file list"
     }
   },
   "ai_assistant": {

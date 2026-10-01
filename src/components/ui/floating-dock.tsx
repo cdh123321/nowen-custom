@@ -7,7 +7,7 @@ import {
   useTransform,
 } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Grip } from "lucide-react";
+import { Grip, StretchHorizontal, StretchVertical } from "lucide-react";
 
 // 移动端检测
 const isMobileDevice = () =>
@@ -36,6 +36,18 @@ interface FloatingDockProps {
 // 位置持久化
 const DOCK_POSITION_KEY = "desktop-dock-pos";
 const DOCK_COLLAPSED_KEY = "desktop-dock-collapsed";
+const DOCK_ORIENTATION_KEY = "desktop-dock-orient";
+
+// Dock 方向：h=横排 v=竖排
+type DockOrientation = "h" | "v";
+
+function loadOrientation(): DockOrientation {
+  try {
+    return localStorage.getItem(DOCK_ORIENTATION_KEY) === "v" ? "v" : "h";
+  } catch {
+    return "h";
+  }
+}
 
 function defaultPos(): { x: number; y: number } {
   return {
@@ -74,11 +86,6 @@ const DOCK_MARGIN = 16;
 const DOCK_ITEM_WIDTH = 40;
 const DOCK_HANDLE_WIDTH = 37;
 
-function getDockWidth(itemCount: number, hasLeftItems: boolean): number {
-  const separators = hasLeftItems ? 2 : 1;
-  return DOCK_HANDLE_WIDTH + itemCount * DOCK_ITEM_WIDTH + separators * 9 + 20;
-}
-
 function getDockTranslateX(x: number, dockWidth: number): string {
   if (x - dockWidth / 2 < DOCK_MARGIN) return "0";
   if (x + dockWidth / 2 > window.innerWidth - DOCK_MARGIN) return "-100%";
@@ -91,19 +98,28 @@ function getDockTranslateY(y: number, dockHeight = 56): string {
   return "-50%";
 }
 
+// 计算 Dock 沿主轴方向的尺寸（横排=宽度，竖排=高度）
+function getDockMainSize(itemCount: number, hasLeftItems: boolean): number {
+  const separators = hasLeftItems ? 2 : 1;
+  return DOCK_HANDLE_WIDTH + itemCount * DOCK_ITEM_WIDTH + separators * 9 + 20;
+}
+
 export function FloatingDock({
   items,
   leftItems,
   className,
 }: FloatingDockProps) {
   const hoverMouseX = useMotionValue(Infinity);
+  const hoverMouseY = useMotionValue(Infinity);
   const [isDark, setIsDark] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(loadCollapsed);
+  const [orientation, setOrientation] = useState<DockOrientation>(loadOrientation);
+  const isVertical = orientation === "v";
   const dockRef = useRef<HTMLDivElement>(null);
   const isMobile = useMemo(() => isMobileDevice(), []);
-  const expandedDockWidth = useMemo(
-    () => getDockWidth(items.length + (leftItems?.length ?? 0), !!leftItems?.length),
+  const dockMainSize = useMemo(
+    () => getDockMainSize(items.length + (leftItems?.length ?? 0), !!leftItems?.length),
     [items.length, leftItems?.length]
   );
 
@@ -147,6 +163,19 @@ export function FloatingDock({
     });
   }, []);
 
+  // 横排/竖排切换（持久化）
+  const toggleOrientation = useCallback(() => {
+    setOrientation((prev) => {
+      const next: DockOrientation = prev === "h" ? "v" : "h";
+      try {
+        localStorage.setItem(DOCK_ORIENTATION_KEY, next);
+      } catch {
+        /* */
+      }
+      return next;
+    });
+  }, []);
+
   const savePos = useCallback((x: number, y: number) => {
     posRef.current = { x, y };
     try {
@@ -175,7 +204,10 @@ export function FloatingDock({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!isDragging) {
-        if (!isCollapsed) hoverMouseX.set(e.clientX);
+        if (!isCollapsed) {
+          hoverMouseX.set(e.clientX);
+          hoverMouseY.set(e.clientY);
+        }
         return;
       }
       const dx = e.clientX - dragStartMouse.current.x;
@@ -186,7 +218,7 @@ export function FloatingDock({
       posRef.current = { x: nx, y: ny };
       setPos({ x: nx, y: ny });
     },
-    [isDragging, hoverMouseX, isCollapsed]
+    [isDragging, hoverMouseX, hoverMouseY, isCollapsed]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -216,7 +248,9 @@ export function FloatingDock({
         top: pos.y,
         transform: isCollapsed
           ? "translate(-50%, -50%)"
-          : `translate(${getDockTranslateX(pos.x, expandedDockWidth)}, ${getDockTranslateY(pos.y)})`,
+          : isVertical
+            ? `translate(${getDockTranslateX(pos.x, 56)}, ${getDockTranslateY(pos.y, dockMainSize)})`
+            : `translate(${getDockTranslateX(pos.x, dockMainSize)}, ${getDockTranslateY(pos.y)})`,
         transition: isDragging
           ? "none"
           : "opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -225,7 +259,10 @@ export function FloatingDock({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onMouseLeave={() => {
-        if (!isDragging) hoverMouseX.set(Infinity);
+        if (!isDragging) {
+          hoverMouseX.set(Infinity);
+          hoverMouseY.set(Infinity);
+        }
       }}
     >
       <AnimatePresence mode="wait">
@@ -286,7 +323,12 @@ export function FloatingDock({
             animate={isMobile ? { opacity: 1 } : { scale: 1, opacity: 1 }}
             exit={isMobile ? { opacity: 0 } : { scale: 0.5, opacity: 0 }}
             transition={isMobile ? { duration: 0.15 } : { type: "spring", stiffness: 350, damping: 25 }}
-            className="flex items-end gap-1 px-2.5 py-1.5 rounded-xl"
+            className={cn(
+              "rounded-xl",
+              isVertical
+                ? "flex flex-col items-center gap-1 px-1.5 py-2.5"
+                : "flex items-end gap-1 px-2.5 py-1.5"
+            )}
             style={{
               background: "var(--color-glass)",
               backdropFilter: "blur(24px) saturate(180%)",
@@ -312,7 +354,8 @@ export function FloatingDock({
                 if (!isDragging) toggleCollapse();
               }}
               className={cn(
-                "w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mb-1",
+                "w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0",
+                !isVertical && "mb-1",
                 "transition-colors duration-200",
                 isDark
                   ? "hover:bg-white/10 text-white/40 hover:text-cyan-400/80"
@@ -325,8 +368,29 @@ export function FloatingDock({
               <Grip className="w-3 h-3" />
             </motion.button>
 
+            {/* 横排/竖排切换 */}
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isDragging) toggleOrientation();
+              }}
+              className={cn(
+                "w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0",
+                !isVertical && "mb-1",
+                "transition-colors duration-200",
+                isDark
+                  ? "hover:bg-white/10 text-white/40 hover:text-cyan-400/80"
+                  : "hover:bg-black/5 text-slate-400 hover:text-blue-500/70"
+              )}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              title={isVertical ? "切换为横排" : "切换为竖排"}
+            >
+              {isVertical ? <StretchHorizontal className="w-3 h-3" /> : <StretchVertical className="w-3 h-3" />}
+            </motion.button>
+
             <div
-              className="w-px h-6 mx-0.5 mb-1"
+              className={cn("mx-0.5", isVertical ? "h-px w-6" : "w-px h-6 mb-1")}
               style={{ background: "var(--color-glass-border)" }}
             />
 
@@ -336,6 +400,8 @@ export function FloatingDock({
                   <DockItem
                     key={item.id}
                     mouseX={hoverMouseX}
+                    mouseY={hoverMouseY}
+                    axis={isVertical ? "y" : "x"}
                     isDark={isDark}
                     isDragging={isDragging}
                     isMobile={isMobile}
@@ -343,7 +409,7 @@ export function FloatingDock({
                   />
                 ))}
                 <div
-                  className="w-px h-6 mx-0.5"
+                  className={cn("mx-0.5", isVertical ? "h-px w-6" : "w-px h-6")}
                   style={{ background: "var(--color-glass-border)" }}
                 />
               </>
@@ -352,6 +418,8 @@ export function FloatingDock({
               <DockItem
                 key={item.id}
                 mouseX={hoverMouseX}
+                mouseY={hoverMouseY}
+                axis={isVertical ? "y" : "x"}
                 isDark={isDark}
                 isDragging={isDragging}
                 isMobile={isMobile}
@@ -374,6 +442,9 @@ interface DockItemProps {
   subItems?: DockItemType[];
   isActive?: boolean;
   mouseX: ReturnType<typeof useMotionValue<number>>;
+  mouseY: ReturnType<typeof useMotionValue<number>>;
+  /** 鱼眼效果跟随的坐标轴：x=横排 y=竖排 */
+  axis: "x" | "y";
   isDark: boolean;
   isDragging: boolean;
   isMobile: boolean;
@@ -386,6 +457,8 @@ function DockItem({
   onClick,
   subItems,
   mouseX,
+  mouseY,
+  axis,
   isDark,
   isDragging,
   isMobile,
@@ -408,9 +481,11 @@ function DockItem({
     return () => document.removeEventListener("pointerdown", handleOutside as any);
   }, [showSubmenu]);
 
-  const distance = useTransform(mouseX, (val) => {
-    const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0 };
-    return val - bounds.x - bounds.width / 2;
+  const distance = useTransform(axis === "y" ? mouseY : mouseX, (val) => {
+    const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0, y: 0, height: 0 };
+    return axis === "y"
+      ? val - bounds.y - bounds.height / 2
+      : val - bounds.x - bounds.width / 2;
   });
 
   // Mini 版尺寸：基础 36，鱼眼放大到 52；移动端固定 36 以提升性能
@@ -484,7 +559,12 @@ function DockItem({
       <AnimatePresence>
         {isHovered && !isDragging && !showSubmenu && (
           <motion.div
-            className="absolute -top-9 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md whitespace-nowrap"
+            className={cn(
+              "absolute px-2 py-1 rounded-md whitespace-nowrap z-50",
+              axis === "y"
+                ? "left-full top-1/2 -translate-y-1/2 ml-2"
+                : "-top-9 left-1/2 -translate-x-1/2"
+            )}
             style={{
               background: "var(--color-bg-secondary)",
               border: "1px solid var(--color-glass-border)",
@@ -501,14 +581,16 @@ function DockItem({
             >
               {title}
             </span>
-            <div
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45"
-              style={{
-                background: "var(--color-bg-secondary)",
-                borderRight: "1px solid var(--color-glass-border)",
-                borderBottom: "1px solid var(--color-glass-border)",
-              }}
-            />
+            {axis !== "y" && (
+              <div
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45"
+                style={{
+                  background: "var(--color-bg-secondary)",
+                  borderRight: "1px solid var(--color-glass-border)",
+                  borderBottom: "1px solid var(--color-glass-border)",
+                }}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -517,7 +599,12 @@ function DockItem({
       <AnimatePresence>
         {showSubmenu && subItems && subItems.length > 0 && !isDragging && (
           <motion.div
-            className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 p-2 rounded-xl z-50"
+            className={cn(
+              "absolute p-2 rounded-xl z-50",
+              axis === "y"
+                ? "left-full top-1/2 -translate-y-1/2 ml-3"
+                : "bottom-full mb-3 left-1/2 -translate-x-1/2"
+            )}
             style={{
               background: "var(--color-bg-secondary)",
               backdropFilter: "blur(24px) saturate(180%)",
@@ -584,14 +671,16 @@ function DockItem({
               ))}
             </div>
             {/* 底部箭头 */}
-            <div
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45"
-              style={{
-                background: "var(--color-bg-secondary)",
-                borderRight: "1px solid var(--color-glass-border)",
-                borderBottom: "1px solid var(--color-glass-border)",
-              }}
-            />
+            {axis !== "y" && (
+              <div
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45"
+                style={{
+                  background: "var(--color-bg-secondary)",
+                  borderRight: "1px solid var(--color-glass-border)",
+                  borderBottom: "1px solid var(--color-glass-border)",
+                }}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>

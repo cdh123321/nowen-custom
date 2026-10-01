@@ -934,8 +934,8 @@ export function SystemMonitorCard({ className, forceCollapsed }: { className?: s
     <div className={cn(
       "relative overflow-hidden rounded-2xl",
       "backdrop-blur-xl",
-      "p-4",
-      effectiveCollapsed ? "h-auto" : "h-full min-h-[280px]",
+      "p-3 sm:p-4",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
       isDark 
         ? "bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 border border-white/10"
         : "bg-gradient-to-br from-white/95 via-slate-50/90 to-white/95 border border-slate-200/60 shadow-xl shadow-blue-500/5",

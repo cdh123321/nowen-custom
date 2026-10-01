@@ -401,7 +401,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
       "relative rounded-2xl",
       "backdrop-blur-xl",
       "p-3 sm:p-4 min-w-0",
-      effectiveCollapsed ? "h-auto" : "h-full",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
       isDark 
         ? "bg-gradient-to-br from-slate-900/95 via-slate-800/80 to-slate-900/95 border border-purple-500/20"
         : "bg-gradient-to-br from-white/95 via-slate-50/90 to-white/95 border border-purple-200/50 shadow-xl shadow-purple-500/5",
@@ -440,7 +440,7 @@ export function NetworkTelemetryCard({ className, forceCollapsed }: { className?
       </div>
 
       {/* 标题栏 */}
-      <div className="relative z-10 flex items-center gap-1.5 mb-3">
+      <div className="relative z-10 flex items-center gap-1.5 mb-2">
         <div className="relative">
           <Wifi className={cn(
             "w-3.5 h-3.5",

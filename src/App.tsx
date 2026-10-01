@@ -16,8 +16,6 @@ import {
   Maximize2,
   Square,
   Lock,
-  Sparkles,
-  FolderUp,
 } from "lucide-react";
 
 // API
@@ -404,6 +402,12 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
       case "notes":
         if (isLoggedIn) setIsQuickNotesDrawerOpen(true);
         break;
+      case "ai":
+        if (isLoggedIn && effectiveWidgetVisibility.aiAssistant !== false) setIsAiAssistantOpen(true);
+        break;
+      case "files":
+        if (isLoggedIn) setIsFilesModalOpen(true);
+        break;
       case "admin":
         navigateToAdmin();
         break;
@@ -784,44 +788,6 @@ const { weather, loading: weatherLoading, refresh: refreshWeather } = useWeather
             onCityChange={handleWeatherCityChange}
             onOpenSearch={() => setIsSpotlightOpen(true)}
           />
-
-          {/* 前台快捷入口：AI 助手 / 文件传输（可在后台"显示设置"中开关） */}
-          {isLoggedIn && (effectiveWidgetVisibility.aiAssistant !== false || widgetVisibility.filesEntry !== false) && (
-            <motion.div
-              className="mb-6 flex flex-wrap items-center gap-3"
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              {effectiveWidgetVisibility.aiAssistant !== false && (
-                <motion.button
-                  type="button"
-                  onClick={() => setIsAiAssistantOpen(true)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium backdrop-blur-xl transition-colors hover:border-white/30"
-                  style={{ background: 'var(--color-glass)', border: '1px solid var(--color-glass-border)', color: 'var(--color-text-primary)' }}
-                  title={t('dock.ai')}
-                >
-                  <Sparkles className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-                  {t('dock.ai')}
-                </motion.button>
-              )}
-              {widgetVisibility.filesEntry !== false && (
-                <motion.button
-                  type="button"
-                  onClick={() => setIsFilesModalOpen(true)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium backdrop-blur-xl transition-colors hover:border-white/30"
-                  style={{ background: 'var(--color-glass)', border: '1px solid var(--color-glass-border)', color: 'var(--color-text-primary)' }}
-                  title={t('dock.files')}
-                >
-                  <FolderUp className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-                  {t('dock.files')}
-                </motion.button>
-              )}
-            </motion.div>
-          )}
 
           {activeTag && (
             <motion.div

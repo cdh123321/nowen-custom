@@ -13,7 +13,6 @@ import {
   MonitorSmartphone,
   Monitor,
   Sparkles,
-  FolderUp,
   Users,
   Shield
 } from 'lucide-react'
@@ -21,7 +20,7 @@ import { cn } from '../../lib/utils'
 import { WidgetVisibility } from '../../lib/api'
 
 // 仅包含布尔开关的组件 ID 类型
-type WidgetToggleId = 'systemMonitor' | 'hardwareIdentity' | 'vitalSigns' | 'networkTelemetry' | 'processMatrix' | 'dockMiniMonitor' | 'mobileTicker' | 'aiAssistant' | 'filesEntry'
+type WidgetToggleId = 'systemMonitor' | 'hardwareIdentity' | 'vitalSigns' | 'networkTelemetry' | 'processMatrix' | 'dockMiniMonitor' | 'mobileTicker' | 'aiAssistant'
 
 // 访问模式 key 类型
 type WidgetAccessId = 'systemMonitorAccess' | 'hardwareIdentityAccess' | 'vitalSignsAccess' | 'networkTelemetryAccess' | 'processMatrixAccess' | 'dockMiniMonitorAccess' | 'mobileTickerAccess' | 'aiAssistantAccess'
@@ -107,14 +106,6 @@ const widgetConfigs: WidgetConfig[] = [
     descKey: 'admin.settings.widget.ai_assistant_desc',
     icon: Sparkles,
     gradient: 'from-violet-500 to-indigo-600',
-    category: 'dock',
-  },
-  {
-    id: 'filesEntry',
-    labelKey: 'admin.settings.widget.files_entry',
-    descKey: 'admin.settings.widget.files_entry_desc',
-    icon: FolderUp,
-    gradient: 'from-sky-500 to-cyan-600',
     category: 'dock',
   },
 ]

@@ -623,9 +623,7 @@
         "hint": "💡 힌트: 위젯을 숨기면 데이터 요청이 줄어 로딩 속도가 향상됩니다. '비공개'로 설정된 위젯은 로그인한 사용자만 볼 수 있습니다. 저장 후 적용됩니다.",
         "save": "설정 저장",
         "saving": "저장 중...",
-        "saved": "설정을 저장했습니다",
-        "files_entry": "파일 전송入口",
-        "files_entry_desc": "홈 화면에 파일 전송 바로가기 표시"
+        "saved": "설정을 저장했습니다"
       },
       "wallpaper": {
         "title": "배경화면 설정",
@@ -1103,18 +1101,7 @@
       "delete_success": "파일이 삭제되었습니다",
       "delete_error": "삭제 실패, 다시 시도하세요",
       "download_error": "다운로드 실패, 다시 시도하세요",
-      "load_error": "파일 목록을 가져오지 못했습니다",
-      "tab_file": "파일",
-      "tab_text": "텍스트",
-      "text_placeholder": "텍스트를 입력하거나 붙여넣으세요…",
-      "text_hint": "저장하면 .txt 파일이 되어 다른 기기에서 열 수 있습니다",
-      "text_clear": "지우기",
-      "save_text": "저장",
-      "text_saved": "텍스트가 저장되었습니다: {{name}}",
-      "text_empty": "먼저 텍스트를 입력하세요",
-      "copy": "내용 복사",
-      "copy_success": "클립보드에 복사되었습니다",
-      "copy_error": "복사 실패, 다시 시도하세요"
+      "load_error": "파일 목록을 가져오지 못했습니다"
     }
   },
   "ai_assistant": {

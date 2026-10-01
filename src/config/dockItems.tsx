@@ -12,6 +12,8 @@ import {
   StretchHorizontal,
   Eye,
   Lightbulb,
+  Sparkles,
+  FolderUp,
 } from "lucide-react";
 import { TFunction } from "i18next";
 
@@ -82,6 +84,18 @@ export const createDockItems = (
     icon: <Plus className="w-5 h-5" />,
     IconComponent: Plus,
   },
+  {
+    id: "ai",
+    title: t("dock.ai"),
+    icon: <Sparkles className="w-5 h-5" />,
+    IconComponent: Sparkles,
+  },
+  {
+    id: "files",
+    title: t("dock.files"),
+    icon: <FolderUp className="w-5 h-5" />,
+    IconComponent: FolderUp,
+  },
   // 视图切换菜单
   {
     id: "view",
@@ -140,6 +154,14 @@ export const filterDockItems = (
       return false;
     }
     if (item.id === "add" && !isLoggedIn) {
+      return false;
+    }
+    // AI 助手：登录可见，且受后台"AI 助手"显示开关控制
+    if (item.id === "ai" && (!isLoggedIn || widgetVisibility?.aiAssistant === false)) {
+      return false;
+    }
+    // 文件传输：登录可见
+    if (item.id === "files" && !isLoggedIn) {
       return false;
     }
     return true;

@@ -741,8 +741,7 @@ export interface WidgetVisibility {
   processMatrix?: boolean      // 进程矩阵卡片
   dockMiniMonitor?: boolean    // Dock 迷你监控
   mobileTicker?: boolean       // 移动端状态栏
-  aiAssistant?: boolean        // AI 助手（前台快捷入口）
-  filesEntry?: boolean         // 文件传输（前台快捷入口）
+  aiAssistant?: boolean        // AI 助手（Dock 栏）
   // 每个组件的访问模式：public=所有人可见，private=仅登录用户可见
   systemMonitorAccess?: 'public' | 'private'
   hardwareIdentityAccess?: 'public' | 'private'

@@ -422,7 +422,7 @@ export function HardwareIdentityCard({ className, forceCollapsed }: { className?
     <div className={cn(
       "relative overflow-hidden rounded-2xl",
       "backdrop-blur-xl",
-      effectiveCollapsed ? "h-auto" : "h-full",
+      effectiveCollapsed ? "h-auto" : "h-full min-h-[300px]",
       isMobile ? "p-3" : "p-4",
       isDark 
         ? "bg-gradient-to-br from-slate-950/95 via-slate-900/90 to-slate-950/95 border border-cyan-500/10"

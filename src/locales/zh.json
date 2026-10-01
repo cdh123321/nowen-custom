@@ -431,18 +431,7 @@
       "delete_success": "文件已删除",
       "delete_error": "删除失败，请重试",
       "download_error": "下载失败，请重试",
-      "load_error": "获取文件列表失败",
-      "tab_file": "文件",
-      "tab_text": "文本",
-      "text_placeholder": "输入或粘贴文字内容…",
-      "text_hint": "保存后生成 .txt 传输件，可在其他设备打开或一键复制",
-      "text_clear": "清空",
-      "save_text": "保存传输",
-      "text_saved": "文本已保存：{{name}}",
-      "text_empty": "请先输入文字内容",
-      "copy": "复制内容",
-      "copy_success": "内容已复制到剪贴板",
-      "copy_error": "复制失败，请重试"
+      "load_error": "获取文件列表失败"
     },
     "settings": {
       "tabs": {
@@ -655,9 +644,7 @@
         "hint": "💡 提示：隐藏仪表可以减少首页数据请求，提升加载速度。设为「私人」的组件仅登录用户可见。修改后需保存才能生效。",
         "save": "保存配置",
         "saving": "保存中...",
-        "saved": "设置保存成功",
-        "files_entry": "文件传输入口",
-        "files_entry_desc": "在前台界面显示文件传输快捷入口"
+        "saved": "设置保存成功"
       },
       "wallpaper": {
         "title": "壁纸设置",
