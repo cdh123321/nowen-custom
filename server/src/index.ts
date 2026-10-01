@@ -18,6 +18,7 @@ import {
   backupRouter,
   notesRouter,
   filesRouter,
+  weatherRouter,
 } from './routes/index.js'
 import { requestLoggerMiddleware } from './routes/logs.js'
 import { initBackupService } from './services/backup.js'
@@ -74,6 +75,7 @@ app.use('/api/logs', logsRouter)
 app.use('/api/backup', backupRouter)
 app.use('/api/notes', notesRouter)
 app.use('/api/files', filesRouter)
+app.use('/api/weather', weatherRouter)
 app.use('/api', dataRouter)  // /api/export, /api/import, /api/factory-reset
 
 // ========== 启动服务 ==========
