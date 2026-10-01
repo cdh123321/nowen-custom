@@ -317,22 +317,20 @@ function ArcReactor({ load: rawLoad, isMobile = false, isDark = true }: { load: 
           style={{ transition: 'stroke-dashoffset 0.8s ease-out 0.1s' }} />
         <circle cx={center} cy={center} r={innerRadius2} fill="none" stroke={primaryColor} strokeWidth={1.5} strokeDasharray="5 7"
           opacity={isDark ? 0.4 : 0.5} className="animate-spin-slow" style={{ transformOrigin: 'center' }} />
-        <circle cx={center} cy={center} r={isMobile ? 8 : 11} fill={isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.8)"}
-          stroke={primaryColor} strokeWidth={1.5} className="animate-pulse-subtle" />
-        <polygon
-          points={`${center},${center - (isMobile ? 3.5 : 5)} ${center - (isMobile ? 3 : 4)},${center + (isMobile ? 2.5 : 3.5)} ${center + (isMobile ? 3 : 4)},${center + (isMobile ? 2.5 : 3.5)}`}
-          fill={primaryColor} opacity={0.9} className={isOverheating ? "animate-blink" : ""} />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center z-20">
-        <div className={cn("text-center", isMobile ? "mt-7" : "mt-9")}>
-          <span className={cn("font-bold font-mono transition-colors duration-300", isMobile ? "text-sm" : "text-lg",
-            isCool && (isDark ? "text-cyan-400" : "text-cyan-700"),
-            !isCool && !isOverheating && (isDark ? "text-amber-400" : "text-amber-700"),
-            isOverheating && (isDark ? "text-rose-400" : "text-rose-700"))}
-            style={{ textShadow: isDark ? 'none' : '0 0 8px rgba(0,0,0,0.1)' }}>
+      <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+        <div className="text-center">
+          <span className={cn("font-bold font-mono tabular-nums transition-colors duration-300 block leading-none", isMobile ? "text-lg" : "text-2xl",
+            isCool && (isDark ? "text-cyan-300" : "text-cyan-700"),
+            !isCool && !isOverheating && (isDark ? "text-amber-300" : "text-amber-700"),
+            isOverheating && (isDark ? "text-rose-300" : "text-rose-700"))}
+            style={{
+              textShadow: isDark ? '0 1px 6px rgba(0,0,0,0.6)' : '0 1px 3px rgba(255,255,255,0.9), 0 0 10px rgba(255,255,255,0.8)'
+            }}>
             <AnimatedValue value={clampedLoad} />
           </span>
-          <p className={cn("uppercase tracking-widest font-semibold mt-0.5", isMobile ? "text-[7px]" : "text-[9px]", isDark ? "text-white/50" : "text-slate-600")}>CPU</p>
+          <p className={cn("uppercase tracking-widest font-semibold mt-1", isMobile ? "text-[8px]" : "text-[10px]", isDark ? "text-white/60" : "text-slate-600")}
+            style={{ textShadow: isDark ? 'none' : '0 1px 3px rgba(255,255,255,0.9)' }}>CPU</p>
         </div>
       </div>
     </div>
@@ -359,57 +357,60 @@ function LiquidOrb({
   const waterColorDark = isDark ? '#0891b2' : '#0e7490'
 
   return (
-    <div className="relative flex items-center justify-center">
+    <div className="relative flex flex-col items-center justify-center">
       {hasSwapWarning && (
         <div className="absolute rounded-full animate-swap-warning"
           style={{ width: size + 16, height: size + 16,
             background: isDark ? 'radial-gradient(circle, rgba(251, 191, 36, 0.4) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%)' }} />
       )}
-      <svg width={size} height={size} className="relative z-10"
-        style={{ filter: isDark ? 'drop-shadow(0 0 6px rgba(6, 182, 212, 0.3))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>
-        <defs>
-          <clipPath id="liquidOrbClip"><circle cx={center} cy={center} r={center - 3} /></clipPath>
-          <linearGradient id="liquidWaterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={waterColor} stopOpacity={isDark ? "0.9" : "0.85"} />
-            <stop offset="100%" stopColor={waterColorDark} stopOpacity={isDark ? "0.7" : "0.75"} />
-          </linearGradient>
-          <radialGradient id="liquidOrbHighlight" cx="30%" cy="30%" r="50%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.3)" /><stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </radialGradient>
-        </defs>
-        <circle cx={center} cy={center} r={center - 3} fill={isDark ? "rgba(0, 30, 50, 0.8)" : "rgba(240, 249, 255, 0.9)"}
-          stroke={hasSwapWarning ? '#fbbf24' : (isDark ? '#0891b2' : '#0e7490')} strokeWidth={hasSwapWarning ? 2 : 1.5} />
-        <g clipPath="url(#liquidOrbClip)">
-          <rect x={0} y={0} width={size} height={size} fill="url(#liquidWaterGradient)" opacity={0.5}
-            style={{ transform: `translateY(${waterY + 3}px)`, transition: 'transform 0.8s ease-out' }} />
-          <rect x={0} y={0} width={size} height={size} fill="url(#liquidWaterGradient)" opacity={0.7}
-            style={{ transform: `translateY(${waterY}px)`, transition: 'transform 0.8s ease-out' }} />
-          <ellipse cx={center} cy={0} rx={center + 6} ry={3} fill={waterColor} opacity={0.5}
-            style={{ transform: `translateY(${waterY}px)`, transition: 'transform 0.8s ease-out' }} />
-          {hasSwapWarning && <rect x={0} y={size - 14} width={size} height={18} fill="#fbbf24" className="animate-swap-flash" />}
-          <circle cx={size * 0.2} cy={size} r={isMobile ? 1.5 : 2} fill="rgba(255,255,255,0.5)" className="animate-bubble-1" />
-          <circle cx={size * 0.5} cy={size} r={isMobile ? 1 : 1.5} fill="rgba(255,255,255,0.5)" className="animate-bubble-2" />
-          <circle cx={size * 0.8} cy={size} r={isMobile ? 1 : 1.5} fill="rgba(255,255,255,0.5)" className="animate-bubble-3" />
-        </g>
-        <circle cx={center} cy={center} r={center - 3} fill="url(#liquidOrbHighlight)" />
-        <circle cx={center} cy={center} r={center - 3} fill="none" stroke={isDark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.5)"} strokeWidth={1} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-        <span className={cn("font-bold font-mono transition-colors duration-300", isMobile ? "text-sm" : "text-lg",
-          hasSwapWarning ? (isDark ? "text-amber-400" : "text-amber-700") : (isDark ? "text-cyan-400" : "text-cyan-800"))}
-          style={{ textShadow: isDark ? 'none' : '0 0 8px rgba(255,255,255,0.6)' }}>
-          <AnimatedValue value={safeMemoryPercent} />
-        </span>
-        <p className={cn("uppercase tracking-widest font-semibold mt-0.5", isMobile ? "text-[6px]" : "text-[9px]", isDark ? "text-white/50" : "text-slate-600")}
-          style={{ textShadow: isDark ? 'none' : '0 0 4px rgba(255,255,255,0.8)' }}>MEM</p>
-        <p className={cn("font-mono font-medium", isMobile ? "text-[6px]" : "text-[8px]", isDark ? "text-white/40" : "text-slate-500")}
-          style={{ textShadow: isDark ? 'none' : '0 0 4px rgba(255,255,255,0.8)' }}>
-          {memoryUsed}/{memoryTotal}
-        </p>
-        {hasSwapWarning && (
-          <p className={cn("font-mono font-semibold mt-0.5 animate-pulse", isMobile ? "text-[6px]" : "text-[8px]", isDark ? "text-amber-400/80" : "text-amber-700")}>⚠ Swap</p>
-        )}
+      <div className="relative">
+        <svg width={size} height={size} className="relative z-10"
+          style={{ filter: isDark ? 'drop-shadow(0 0 6px rgba(6, 182, 212, 0.3))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>
+          <defs>
+            <clipPath id="liquidOrbClip"><circle cx={center} cy={center} r={center - 3} /></clipPath>
+            <linearGradient id="liquidWaterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={waterColor} stopOpacity={isDark ? "0.9" : "0.85"} />
+              <stop offset="100%" stopColor={waterColorDark} stopOpacity={isDark ? "0.7" : "0.75"} />
+            </linearGradient>
+            <radialGradient id="liquidOrbHighlight" cx="30%" cy="30%" r="50%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.3)" /><stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </radialGradient>
+          </defs>
+          <circle cx={center} cy={center} r={center - 3} fill={isDark ? "rgba(0, 30, 50, 0.8)" : "rgba(240, 249, 255, 0.9)"}
+            stroke={hasSwapWarning ? '#fbbf24' : (isDark ? '#0891b2' : '#0e7490')} strokeWidth={hasSwapWarning ? 2 : 1.5} />
+          <g clipPath="url(#liquidOrbClip)">
+            <rect x={0} y={0} width={size} height={size} fill="url(#liquidWaterGradient)" opacity={0.5}
+              style={{ transform: `translateY(${waterY + 3}px)`, transition: 'transform 0.8s ease-out' }} />
+            <rect x={0} y={0} width={size} height={size} fill="url(#liquidWaterGradient)" opacity={0.7}
+              style={{ transform: `translateY(${waterY}px)`, transition: 'transform 0.8s ease-out' }} />
+            <ellipse cx={center} cy={0} rx={center + 6} ry={3} fill={waterColor} opacity={0.5}
+              style={{ transform: `translateY(${waterY}px)`, transition: 'transform 0.8s ease-out' }} />
+            {hasSwapWarning && <rect x={0} y={size - 14} width={size} height={18} fill="#fbbf24" className="animate-swap-flash" />}
+            <circle cx={size * 0.2} cy={size} r={isMobile ? 1.5 : 2} fill="rgba(255,255,255,0.5)" className="animate-bubble-1" />
+            <circle cx={size * 0.5} cy={size} r={isMobile ? 1 : 1.5} fill="rgba(255,255,255,0.5)" className="animate-bubble-2" />
+            <circle cx={size * 0.8} cy={size} r={isMobile ? 1 : 1.5} fill="rgba(255,255,255,0.5)" className="animate-bubble-3" />
+          </g>
+          <circle cx={center} cy={center} r={center - 3} fill="url(#liquidOrbHighlight)" />
+          <circle cx={center} cy={center} r={center - 3} fill="none" stroke={isDark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.5)"} strokeWidth={1} />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+          <span className={cn("font-bold font-mono tabular-nums transition-colors duration-300 leading-none", isMobile ? "text-lg" : "text-2xl",
+            hasSwapWarning ? (isDark ? "text-amber-300" : "text-amber-700") : (isDark ? "text-cyan-300" : "text-cyan-800"))}
+            style={{ textShadow: isDark ? '0 1px 6px rgba(0,0,0,0.6)' : '0 1px 3px rgba(255,255,255,0.9), 0 0 10px rgba(255,255,255,0.8)' }}>
+            <AnimatedValue value={safeMemoryPercent} />
+          </span>
+          <p className={cn("uppercase tracking-widest font-semibold mt-1", isMobile ? "text-[7px]" : "text-[9px]", isDark ? "text-white/60" : "text-slate-600")}
+            style={{ textShadow: isDark ? 'none' : '0 1px 3px rgba(255,255,255,0.9)' }}>MEM</p>
+        </div>
       </div>
+      {/* 容量明细：放在球体下方，避免挤在球内看不清 */}
+      <p className={cn("font-mono font-semibold mt-1.5 whitespace-nowrap", isMobile ? "text-[9px]" : "text-[11px]", isDark ? "text-white/60" : "text-slate-600")}
+        style={{ textShadow: isDark ? 'none' : '0 1px 2px rgba(255,255,255,0.9)' }}>
+        {memoryUsed} / {memoryTotal}
+      </p>
+      {hasSwapWarning && (
+        <p className={cn("font-mono font-semibold animate-pulse", isMobile ? "text-[8px]" : "text-[9px]", isDark ? "text-amber-400/90" : "text-amber-700")}>⚠ Swap</p>
+      )}
     </div>
   )
 }
